@@ -1,6 +1,6 @@
 # 03 · Matriz de rastreabilidade
 
-Relaciona cada funcionalidade (F) e regra (R) do sistema PHP ([01-auditoria.md](01-auditoria.md)) à implementação no novo sistema. Coluna **Testes** aponta os arquivos em `backend/tests/` que cobrem o item.
+Relaciona cada funcionalidade (F) e regra (R) do sistema PHP ([01-auditoria.md](01-auditoria.md)) à implementação no novo sistema. Coluna **Testes** aponta os arquivos em `backend/tests/` que cobrem o item. Todas as telas também foram percorridas manualmente no navegador (desktop e 375 px).
 
 | ID | Funcionalidade original | Endpoint(s) | Tela (frontend) | Testes | Status |
 | --- | --- | --- | --- | --- | --- |
@@ -27,7 +27,7 @@ Relaciona cada funcionalidade (F) e regra (R) do sistema PHP ([01-auditoria.md](
 | F21 | Equipe (listar, cadastrar, excluir; último balconista) | `/staff` | `/painel/equipe` | `test_staff.py` | ✅ |
 | F22 | Perfil do funcionário + senha | `/me/profile`, `/me/password` | `/painel/perfil`, `/cozinha/perfil` | `test_accounts.py` | ✅ |
 | F23 | Balconista exclui a própria conta | `DELETE /me` | `/painel/perfil` | `test_accounts.py` | ✅ |
-| F24 | Fila da cozinha (auto-atualização) | `GET /orders?scope=kitchen`, `POST …/dispatch` | `/cozinha` | `test_orders.py` | ✅ atualização a cada 15 s sem recarregar |
+| F24 | Fila da cozinha (auto-atualização) | `GET /orders?sort=oldest` (para o cozinheiro, o servidor restringe à fila de preparo), `POST …/dispatch` | `/cozinha` | `test_orders.py` | ✅ atualização a cada 15 s sem recarregar |
 | F25 | Cardápio somente leitura (cozinha) | `GET /menu-items` | `/cozinha/cardapio` | `test_catalog.py` | ✅ |
 | F26 | Confirmação de ações destrutivas | — | `ConfirmDialog` | — (verificação manual) | ✅ |
 | F27 | Mensagens de sucesso/erro | formato de erro único | toasts + erros por campo | — | ✅ |

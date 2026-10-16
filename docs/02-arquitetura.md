@@ -23,6 +23,7 @@ backend/
     core/                   # config, segurança, erros, logging, dependências
     db/                     # Base declarativa, engine/sessão, tipos
     modules/
+      users/                # modelos e schemas de usuário (clientes e funcionários)
       auth/                 # login, logout, cadastro, sessão, limite de tentativas
       accounts/             # perfil do usuário logado, endereço, senha, exclusão
       staff/                # equipe (balconistas/cozinheiros)
@@ -39,13 +40,16 @@ backend/
   tests/                    # unitários + integração (MySQL de teste)
 frontend/
   src/
+    api/                    # cliente HTTP (CSRF, erros), endpoints por domínio, chaves do cache
     app/                    # roteamento, providers, layouts, guards
-    components/ui/          # design system (Button, Input, Dialog, Table…)
-    components/             # componentes compartilhados (PageHeader, EmptyState, StatusBadge…)
-    features/<domínio>/     # páginas e componentes por domínio (auth, menu, cart, orders, kitchen, inventory, reports, staff, profile)
-    lib/                    # api client, formatação, validação (CPF), utilitários
+    components/ui/          # design system (Button, Field, Dialog, ConfirmDialog, Table…)
+    components/common.tsx   # componentes compartilhados (PageHeader, EmptyState, StatusBadge…)
+    features/<domínio>/     # páginas e componentes por domínio (auth, menu, cart, checkout, orders, kitchen, catalog, inventory, reports, staff, profile)
+    hooks/                  # hooks genéricos (debounce, relógio)
+    lib/                    # formatação pt-BR, rótulos, validações (CPF), utilitários
     types/                  # contratos da API em TypeScript
-docs/                       # auditoria, arquitetura, rastreabilidade, design system, decisões
+docs/                       # auditoria, arquitetura, rastreabilidade, design system, decisões, migração
+tools/                      # script de capturas de tela (Playwright)
 ```
 
 Regra de dependência: `router → service → models/db`. Rotas não contêm SQL nem regra de negócio; serviços não conhecem HTTP (lançam exceções de domínio que a camada web converte em respostas).
@@ -99,7 +103,7 @@ Documentação interativa gerada automaticamente em `/api/docs` (Swagger) e `/ap
 | POST | `/auth/login` | público | `{identifier, password}` — usuário (cliente) ou CPF (funcionário) |
 | POST | `/auth/logout` | logado | encerra a sessão |
 | GET | `/auth/me` | logado | usuário da sessão |
-| GET/PATCH | `/me/profile` | logado | ver/editar os próprios dados |
+| GET/PUT | `/me/profile` | logado | ver/editar os próprios dados |
 | PUT | `/me/address` | cliente | endereço de entrega |
 | POST | `/me/password` | logado | troca de senha (exige a atual) |
 | DELETE | `/me` | cliente, balconista | exclui a própria conta |
@@ -107,12 +111,12 @@ Documentação interativa gerada automaticamente em `/api/docs` (Swagger) e `/ap
 | GET | `/menu-items` | público | itens com disponibilidade (`?category_id`) |
 | GET | `/menu-items/{id}` | balconista, cozinheiro | detalhe com receita |
 | POST/PUT/DELETE | `/menu-items[/{id}]` | balconista | CRUD com receita |
-| PUT | `/menu-items/{id}/image` | balconista | upload (multipart) |
+| PUT/DELETE | `/menu-items/{id}/image` | balconista | enviar/substituir (multipart) ou remover a imagem |
 | GET/POST | `/ingredients` | balconista | listar / adicionar (soma se existir) |
-| PATCH/DELETE | `/ingredients/{id}` | balconista | editar / excluir |
+| PUT/DELETE | `/ingredients/{id}` | balconista | editar / excluir |
 | POST | `/orders` | cliente | criar pedido (`Idempotency-Key`) |
 | GET | `/orders` | todos os funcionários e cliente | lista paginada; escopo por perfil |
-| GET | `/orders/summary` | balconista | contagem por status |
+| GET | `/orders/summary` | balconista, cozinheiro | contagem por status (cozinha: só a fila) |
 | GET | `/orders/{id}` | dono ou funcionário | detalhe + linha do tempo |
 | POST | `/orders/{id}/actions/{action}` | conforme a máquina de estados | `accept`, `reject`, `dispatch`, `cancel`, `complete` |
 | GET | `/reports/sales` | balconista | `?start=YYYY-MM-DD&end=YYYY-MM-DD` |
