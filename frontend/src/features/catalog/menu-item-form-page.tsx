@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { Card, CardHeader, Skeleton } from "@/components/ui/primitives";
 import { applyApiErrors, fields } from "@/lib/validation";
-import type { MenuItem } from "@/types/api";
+import type { Category, Ingredient, MenuItem } from "@/types/api";
 
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 const IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"];
@@ -64,16 +64,36 @@ export function MenuItemFormPage() {
     enabled: id !== null,
   });
 
-  if (id !== null && item.isPending) return <Skeleton className="h-[480px]" />;
-  if (id !== null && item.isError) return <ErrorState error={item.error} onRetry={() => item.refetch()} />;
-  return <MenuItemForm key={id ?? "novo"} item={item.data} />;
-}
-
-function MenuItemForm({ item }: { item?: MenuItem }) {
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
+  // Os <select> precisam das opções antes de receber os valores iniciais do formulário.
   const categories = useQuery({ queryKey: queryKeys.categories, queryFn: catalogApi.categories, staleTime: Infinity });
   const ingredients = useQuery({ queryKey: queryKeys.inventory(), queryFn: () => inventoryApi.list() });
+
+  const failed = [item, categories, ingredients].find((q) => q.isError);
+  if (failed) return <ErrorState error={failed.error} onRetry={() => failed.refetch()} />;
+  if ((id !== null && item.isPending) || !categories.data || !ingredients.data) {
+    return <Skeleton className="mx-auto h-[480px] max-w-3xl" />;
+  }
+  return (
+    <MenuItemForm
+      key={id ?? "novo"}
+      item={item.data}
+      categories={categories.data}
+      ingredientOptions={ingredients.data.items}
+    />
+  );
+}
+
+function MenuItemForm({
+  item,
+  categories,
+  ingredientOptions,
+}: {
+  item?: MenuItem;
+  categories: Category[];
+  ingredientOptions: Ingredient[];
+}) {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const form = useForm<FormInput, unknown, FormOutput>({ resolver: zodResolver(schema), defaultValues: toForm(item) });
   const recipe = useFieldArray({ control: form.control, name: "recipe" });
@@ -131,7 +151,6 @@ function MenuItemForm({ item }: { item?: MenuItem }) {
     },
   });
 
-  const ingredientOptions = ingredients.data?.items ?? [];
   const stockById = new Map(ingredientOptions.map((i) => [String(i.id), i]));
 
   return (
@@ -156,7 +175,7 @@ function MenuItemForm({ item }: { item?: MenuItem }) {
             <Field label="Categoria" error={errors.category_id?.message} required>
               <Select {...form.register("category_id")}>
                 <option value="">Selecione</option>
-                {categories.data?.map((c) => (
+                {categories.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
                   </option>
@@ -253,11 +272,11 @@ function MenuItemForm({ item }: { item?: MenuItem }) {
                 variant="outline"
                 size="sm"
                 onClick={() => recipe.append({ ingredient_id: "", quantity: "1" })}
-                disabled={ingredients.isPending || recipe.fields.length >= ingredientOptions.length}
+                disabled={recipe.fields.length >= ingredientOptions.length}
               >
                 <Plus /> Adicionar ingrediente
               </Button>
-              {ingredientOptions.length === 0 && !ingredients.isPending && (
+              {ingredientOptions.length === 0 && (
                 <p className="mt-2 text-xs text-muted-foreground">
                   Cadastre ingredientes em <Link to="/painel/estoque" className="text-primary hover:underline">Estoque</Link>.
                 </p>
