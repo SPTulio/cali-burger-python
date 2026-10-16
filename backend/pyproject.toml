@@ -2,7 +2,6 @@
 name = "caliburger-api"
 version = "1.0.0"
 description = "API do Cali Burger: pedidos, cardápio, estoque e relatórios de uma hamburgueria."
-readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.143",
