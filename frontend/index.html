@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Cali Burger — peça seus lanches online e acompanhe o pedido em tempo real." />
+    <meta name="theme-color" content="#C2410C" />
+    <title>Cali Burger</title>
+    <script>
+      // Aplica o tema salvo antes da renderização, evitando o "piscar" do tema claro.
+      try {
+        const saved = localStorage.getItem("cb-theme");
+        const dark = saved ? saved === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+        document.documentElement.classList.toggle("dark", dark);
+      } catch {}
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
