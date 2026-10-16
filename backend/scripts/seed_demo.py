@@ -283,11 +283,13 @@ def _backdate(db: Session, order_id: int, created_at: datetime) -> None:
     order.created_at = created_at
     if order.payment:
         order.payment.paid_at = created_at
+    # Nenhuma etapa pode ficar no futuro (pedidos recentes têm pouco tempo entre etapas).
+    latest = utcnow() - timedelta(minutes=1)
     moment = created_at
     for event in order.events:
-        event.created_at = moment
+        event.created_at = min(moment, latest)
         moment += timedelta(minutes=random.randint(3, 25))
-    order.updated_at = moment
+    order.updated_at = min(order.events[-1].created_at if order.events else created_at, latest)
     db.commit()
 
 
