@@ -100,12 +100,20 @@ _PYDANTIC_MESSAGES: dict[str, str] = {
 
 
 def _translate(error: dict[str, Any]) -> str:
-    if error["type"] == "value_error":
+    kind = error["type"]
+    if "email address" in error["msg"]:
+        return "E-mail inválido."
+    if kind == "value_error":
         # Mensagens próprias dos validadores (ex.: "CPF inválido.").
         return str(error.get("ctx", {}).get("error", error["msg"]))
-    if error["type"] == "value_error.email" or "email" in error["msg"].lower():
-        return "E-mail inválido."
-    template = _PYDANTIC_MESSAGES.get(error["type"])
+    if kind in ("too_short", "string_too_short") and isinstance(error.get("input"), str):
+        min_length = error.get("ctx", {}).get("min_length", 1)
+        return (
+            "Campo obrigatório." if min_length == 1 else f"Use pelo menos {min_length} caracteres."
+        )
+    if kind == "too_long" and isinstance(error.get("input"), str):
+        kind = "string_too_long"
+    template = _PYDANTIC_MESSAGES.get(kind)
     if template is None:
         return "Valor inválido."
     try:

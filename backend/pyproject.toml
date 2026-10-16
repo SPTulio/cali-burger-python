@@ -5,27 +5,27 @@ description = "API do Cali Burger: pedidos, cardápio, estoque e relatórios de 
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "fastapi>=0.115",
-    "uvicorn[standard]>=0.32",
-    "pydantic>=2.9",
-    "pydantic-settings>=2.6",
+    "fastapi>=0.143",
+    "uvicorn[standard]>=0.54",
+    "pydantic>=2.14",
+    "pydantic-settings>=2.16",
     "email-validator>=2.2",
-    "sqlalchemy>=2.0.36",
-    "alembic>=1.14",
-    "pymysql>=1.1.1",
+    "sqlalchemy>=2.1",
+    "alembic>=1.20",
+    "pymysql>=1.2",
     "cryptography>=43",
-    "bcrypt>=4.2",
+    "bcrypt>=5.0",
     "python-multipart>=0.0.18",
-    "pillow>=11",
+    "pillow>=12",
     "tzdata>=2024.2",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=8.3",
-    "httpx>=0.28",
-    "ruff>=0.8",
-    "mypy>=1.13",
+    "pytest>=9.1",
+    "httpx2>=2.13",
+    "ruff>=0.17",
+    "mypy>=2.4",
 ]
 
 [build-system]
@@ -45,6 +45,7 @@ select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF", "S", "N", "C4", "PT"]
 ignore = [
     "RUF001", "RUF002", "RUF003", # textos em português têm acentos e travessões
     "B008",                       # Depends() em parâmetros é o padrão do FastAPI
+    "N818",                       # exceções de domínio com nomes curtos (NotFound, Forbidden)
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -65,5 +66,6 @@ disallow_incomplete_defs = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
 addopts = "-ra"
 filterwarnings = ["error::DeprecationWarning:app.*"]
