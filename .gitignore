@@ -1,0 +1,30 @@
+# Segredos e configuração local
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Uploads gerados em execução
+backend/media/
+
+# Node / frontend
+node_modules/
+frontend/dist/
+*.tsbuildinfo
+
+# Editores e sistema
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
