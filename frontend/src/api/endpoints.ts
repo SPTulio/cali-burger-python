@@ -109,8 +109,10 @@ export const ordersApi = {
   summary: () => http.get<{ counts: Partial<Record<OrderStatus, number>> }>("/orders/summary"),
   create: (items: { menu_item_id: number; quantity: number; notes: string | null }[], key: string) =>
     http.post<Order>("/orders", { json: { items }, headers: { "Idempotency-Key": key } }),
-  act: (id: number, action: OrderAction) =>
-    http.post<OrderActionResult>(`/orders/${id}/actions/${action}`),
+  act: (id: number, action: OrderAction, reason?: string | null) =>
+    http.post<OrderActionResult>(`/orders/${id}/actions/${action}`, {
+      json: reason ? { reason } : undefined,
+    }),
 };
 
 export const reportsApi = {

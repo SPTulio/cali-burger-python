@@ -93,7 +93,12 @@ def test_import_from_the_php_database(legacy_url, db, make_api):
 
     # Pedido pendente importado segue o fluxo normal (recusar devolve o estoque consumido).
     before = db.scalar(select(Ingredient.quantity).where(Ingredient.name == "Pão Brioche"))
-    assert manager.post("/api/v1/orders/8/actions/reject").status_code == 200
+    assert (
+        manager.post(
+            "/api/v1/orders/8/actions/reject", json={"reason": "Item em falta"}
+        ).status_code
+        == 200
+    )
     fresh(db)
     after = db.scalar(select(Ingredient.quantity).where(Ingredient.name == "Pão Brioche"))
     assert after == before + 1

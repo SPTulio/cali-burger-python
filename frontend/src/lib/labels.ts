@@ -86,3 +86,19 @@ export const STOCK_LEVEL: Record<StockLevel, { label: string; tone: Tone }> = {
   low: { label: "Estoque baixo", tone: "warning" },
   out: { label: "Em falta", tone: "danger" },
 };
+
+/** Motivos sugeridos. "Outro motivo" abre um campo de texto livre. */
+export const REJECT_REASONS = [
+  "Item em falta",
+  "Endereço fora da área de entrega",
+  "Endereço incompleto ou inválido",
+  "Loja fechando ou cozinha sobrecarregada",
+] as const;
+
+export const CANCEL_REASONS = [
+  "Pedi por engano",
+  "Quero mudar o pedido",
+  "Está demorando para ser aceito",
+] as const;
+
+export const OTHER_REASON = "Outro motivo";

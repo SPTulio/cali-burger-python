@@ -57,6 +57,7 @@ class OrderEventOut(BaseModel):
     from_status: OrderStatus | None
     to_status: OrderStatus
     actor_name: str | None
+    note: str | None
     created_at: UtcDateTime
 
 
@@ -71,6 +72,9 @@ class OrderOut(BaseModel):
     updated_at: UtcDateTime
     items: list[OrderItemOut]
     payment: PaymentOut | None
+    status_reason: str | None = Field(
+        default=None, description="Motivo da recusa ou do cancelamento, quando informado."
+    )
     events: list[OrderEventOut] | None = Field(
         default=None, description="Linha do tempo (somente no detalhe do pedido)."
     )
@@ -83,6 +87,12 @@ class OrderPage(BaseModel):
     page: int
     page_size: int
     pages: int
+
+
+class OrderActionIn(BaseModel):
+    reason: OptionalNote = Field(
+        default=None, description="Motivo (obrigatório para recusar, opcional para cancelar)"
+    )
 
 
 class OrderActionOut(BaseModel):

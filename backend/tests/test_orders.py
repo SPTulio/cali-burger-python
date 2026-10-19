@@ -35,8 +35,12 @@ def order(client, *lines, key=None):
     return client.post("/api/v1/orders", json={"items": items}, headers=headers)
 
 
-def act(client, order_id, action):
-    return client.post(f"/api/v1/orders/{order_id}/actions/{action}")
+def act(client, order_id, action, reason=None):
+    # Recusar exige motivo; nos demais testes o motivo padrão basta.
+    if reason is None and action == "reject":
+        reason = "Item em falta"
+    body = {"reason": reason} if reason is not None else None
+    return client.post(f"/api/v1/orders/{order_id}/actions/{action}", json=body)
 
 
 def test_complete_order_flow_with_exact_stock(people, db, menu):
@@ -237,3 +241,35 @@ def test_payment_is_recorded(people, db, menu):
     order_id = order(people.joao, (menu.soda_item, 2)).json()["id"]
     payment = db.scalar(select(Payment).where(Payment.order_id == order_id))
     assert (payment.method, str(payment.amount)) == ("pix", "16.00")
+
+
+def test_reject_requires_a_reason_that_the_customer_sees(people, menu):
+    order_id = order(people.joao, (menu.classic, 1)).json()["id"]
+
+    missing = people.balcao.post(f"/api/v1/orders/{order_id}/actions/reject")
+    assert missing.status_code == 422
+    assert missing.json()["error"]["fields"] == {"reason": "Informe o motivo."}
+    blank = act(people.balcao, order_id, "reject", reason="   ")
+    assert blank.status_code == 422
+
+    assert act(people.balcao, order_id, "reject", reason="Endereço fora da área").status_code == 200
+    seen = people.joao.get(f"/api/v1/orders/{order_id}").json()
+    assert seen["status"] == "rejected"
+    assert seen["status_reason"] == "Endereço fora da área"
+    assert seen["events"][-1]["note"] == "Endereço fora da área"
+    listed = people.joao.get("/api/v1/orders").json()["items"][0]
+    assert listed["status_reason"] == "Endereço fora da área"
+
+
+def test_customer_cancel_reason_is_optional(people, menu):
+    first = order(people.joao, (menu.water, 1)).json()["id"]
+    second = order(people.joao, (menu.water, 1)).json()["id"]
+
+    assert act(people.joao, first, "cancel").json()["order"]["status_reason"] is None
+    with_reason = act(people.joao, second, "cancel", reason="Pedi por engano").json()["order"]
+    assert with_reason["status_reason"] == "Pedi por engano"
+    # Motivo só aparece em pedidos cancelados/recusados.
+    third = order(people.joao, (menu.water, 1)).json()["id"]
+    accepted = act(people.balcao, third, "accept", reason="ignorado").json()["order"]
+    assert accepted["status_reason"] is None
+    assert accepted["events"][-1]["note"] is None

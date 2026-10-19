@@ -113,6 +113,9 @@ export function MyOrdersPage() {
                   <p className="tabular mt-1 text-xs text-muted-foreground">
                     {formatDateTime(order.created_at)} · {formatCurrency(order.total)}
                   </p>
+                  {order.status_reason && (
+                    <p className="mt-1 text-xs text-muted-foreground">Motivo: {order.status_reason}</p>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   <OrderActions order={order} />

@@ -238,6 +238,9 @@ function OrdersTable({ orders, now, showRelative }: { orders: Order[]; now?: num
             {!showRelative && (
               <TD>
                 <StatusBadge status={order.status} />
+                {order.status_reason && (
+                  <span className="mt-1 block max-w-48 text-xs text-muted-foreground">{order.status_reason}</span>
+                )}
               </TD>
             )}
             <TD

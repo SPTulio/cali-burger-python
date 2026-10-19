@@ -3,8 +3,9 @@ import { useState } from "react";
 
 import { Button, type ButtonProps } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Field, Input, Select } from "@/components/ui/field";
 import { formatDateTime, formatTime } from "@/lib/format";
-import { ORDER_ACTION } from "@/lib/labels";
+import { CANCEL_REASONS, ORDER_ACTION, OTHER_REASON, REJECT_REASONS } from "@/lib/labels";
 import { cn } from "@/lib/utils";
 import { useOrderAction } from "@/features/orders/use-order-action";
 import type { Order, OrderAction, OrderItem, OrderStatus } from "@/types/api";
@@ -26,6 +27,48 @@ const ACTION_ICON: Record<OrderAction, LucideIcon> = {
 };
 
 /** Botões das ações permitidas (vindas do servidor), cada uma com confirmação. */
+function ReasonField({
+  action,
+  choice,
+  text,
+  error,
+  onChoice,
+  onText,
+}: {
+  action: "reject" | "cancel";
+  choice: string;
+  text: string;
+  error: string | null;
+  onChoice: (value: string) => void;
+  onText: (value: string) => void;
+}) {
+  const options = action === "reject" ? REJECT_REASONS : CANCEL_REASONS;
+  const required = action === "reject";
+  return (
+    <div className="flex flex-col gap-3">
+      <Field
+        label={required ? "Motivo (o cliente verá esta mensagem)" : "Motivo (opcional)"}
+        error={choice !== OTHER_REASON ? (error ?? undefined) : undefined}
+      >
+        <Select value={choice} onChange={(e) => onChoice(e.target.value)}>
+          <option value="">{required ? "Selecione o motivo" : "Prefiro não informar"}</option>
+          {options.map((reason) => (
+            <option key={reason} value={reason}>
+              {reason}
+            </option>
+          ))}
+          <option value={OTHER_REASON}>{OTHER_REASON}</option>
+        </Select>
+      </Field>
+      {choice === OTHER_REASON && (
+        <Field label="Descreva o motivo" error={error ?? undefined}>
+          <Input maxLength={255} value={text} onChange={(e) => onText(e.target.value)} autoFocus />
+        </Field>
+      )}
+    </div>
+  );
+}
+
 export function OrderActions({
   order,
   size = "sm",
@@ -38,9 +81,29 @@ export function OrderActions({
   fullWidth?: boolean;
 }) {
   const [pending, setPending] = useState<OrderAction | null>(null);
+  const [choice, setChoice] = useState("");
+  const [text, setText] = useState("");
+  const [reasonError, setReasonError] = useState<string | null>(null);
   const act = useOrderAction();
   if (order.available_actions.length === 0) return null;
   const config = pending ? ORDER_ACTION[pending] : null;
+  const asksReason = pending === "reject" || pending === "cancel";
+
+  function close() {
+    setPending(null);
+    setChoice("");
+    setText("");
+    setReasonError(null);
+  }
+
+  async function confirm(action: OrderAction) {
+    const reason = (choice === OTHER_REASON ? text : choice).trim() || null;
+    if (action === "reject" && !reason) {
+      setReasonError("Informe o motivo da recusa.");
+      throw new Error("motivo obrigatório"); // mantém o diálogo aberto
+    }
+    await act.mutateAsync({ id: order.id, action, reason });
+  }
 
   return (
     <div className={cn("flex flex-wrap gap-2", fullWidth && "[&>button]:flex-1", className)}>
@@ -55,13 +118,30 @@ export function OrderActions({
       {config && pending && (
         <ConfirmDialog
           open
-          onOpenChange={(open) => !open && setPending(null)}
+          onOpenChange={(open) => !open && close()}
           title={`${config.confirmTitle} nº ${order.id}?`}
           description={config.confirmText}
           confirmLabel={config.label}
           destructive={config.destructive}
-          onConfirm={() => act.mutateAsync({ id: order.id, action: pending })}
-        />
+          onConfirm={() => confirm(pending)}
+        >
+          {asksReason && (
+            <ReasonField
+              action={pending}
+              choice={choice}
+              text={text}
+              error={reasonError}
+              onChoice={(value) => {
+                setChoice(value);
+                setReasonError(null);
+              }}
+              onText={(value) => {
+                setText(value);
+                setReasonError(null);
+              }}
+            />
+          )}
+        </ConfirmDialog>
       )}
     </div>
   );
@@ -99,14 +179,15 @@ export function OrderProgress({ order }: { order: Order }) {
   if (order.status === "cancelled" || order.status === "rejected") {
     const when = at(order.status);
     return (
-      <div className="flex items-center gap-3 rounded-md bg-muted p-4 text-sm">
+      <div className="flex items-start gap-3 rounded-md bg-muted p-4 text-sm">
         <CircleX className="size-5 text-muted-foreground" aria-hidden />
         <div>
           <p className="font-medium">
             {order.status === "cancelled" ? "Pedido cancelado" : "Pedido recusado pela lanchonete"}
           </p>
+          {order.status_reason && <p className="mt-0.5">Motivo: {order.status_reason}</p>}
           <p className="text-muted-foreground">
-            {when && `${formatDateTime(when)} · `}Os itens não foram cobrados do estoque.
+            {when && `${formatDateTime(when)} · `}Os ingredientes voltaram ao estoque da loja.
           </p>
         </div>
       </div>

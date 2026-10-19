@@ -1,10 +1,11 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Header, Query, Response, status
+from fastapi import APIRouter, Body, Header, Query, Response, status
 
 from app.modules.auth.dependencies import CurrentUser, CustomerUser, DbSession, StaffUser
 from app.modules.orders import service
 from app.modules.orders.schemas import (
+    OrderActionIn,
     OrderActionOut,
     OrderCreateIn,
     OrderFilters,
@@ -71,7 +72,12 @@ def get_order(order_id: int, user: CurrentUser, db: DbSession) -> OrderOut:
     summary="Aceitar, recusar, enviar para entrega, cancelar ou confirmar recebimento",
 )
 def apply_action(
-    order_id: int, action: OrderAction, user: CurrentUser, db: DbSession
+    order_id: int,
+    action: OrderAction,
+    user: CurrentUser,
+    db: DbSession,
+    data: Annotated[OrderActionIn | None, Body()] = None,
 ) -> OrderActionOut:
-    order, message = service.apply_action(db, order_id, action, user)
+    reason = data.reason if data else None
+    order, message = service.apply_action(db, order_id, action, user, reason)
     return OrderActionOut(order=service.to_out(order, user, with_events=True), message=message)

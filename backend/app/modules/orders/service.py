@@ -8,11 +8,12 @@ from sqlalchemy import Select, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
-from app.core.errors import BusinessRuleError, Forbidden, NotFound
+from app.core.errors import BusinessRuleError, Forbidden, InvalidInput, NotFound
 from app.core.time import local_day_end_utc, local_day_start_utc
 from app.modules.catalog.service import load_items_for_order
 from app.modules.inventory.models import Ingredient
 from app.modules.orders.models import (
+    VOIDED_STATUSES,
     Order,
     OrderConsumption,
     OrderItem,
@@ -37,6 +38,13 @@ from app.modules.users.models import Role, User
 
 CENT = Decimal("0.01")
 
+# Carregamento dos relacionamentos em consultas separadas (sem N+1).
+ORDER_LOAD_OPTIONS = (
+    selectinload(Order.items),
+    selectinload(Order.payment),
+    selectinload(Order.events),
+)
+
 
 def money(value: Decimal) -> Decimal:
     return value.quantize(CENT, rounding=ROUND_HALF_UP)
@@ -46,6 +54,7 @@ def money(value: Decimal) -> Decimal:
 
 
 def to_out(order: Order, user: User, *, with_events: bool = False) -> OrderOut:
+    last_event = order.events[-1] if order.events else None
     return OrderOut(
         id=order.id,
         status=order.status,
@@ -57,6 +66,7 @@ def to_out(order: Order, user: User, *, with_events: bool = False) -> OrderOut:
         updated_at=order.updated_at,
         items=[OrderItemOut.model_validate(i) for i in order.items],
         payment=PaymentOut.model_validate(order.payment) if order.payment else None,
+        status_reason=last_event.note if last_event and order.status in VOIDED_STATUSES else None,
         events=[OrderEventOut.model_validate(e) for e in order.events] if with_events else None,
         available_actions=available_actions(
             order.status, user.role, is_owner=order.customer_id == user.id
@@ -64,13 +74,10 @@ def to_out(order: Order, user: User, *, with_events: bool = False) -> OrderOut:
     )
 
 
-def _load_order(db: Session, order_id: int, *, with_events: bool = False) -> Order | None:
-    options = [selectinload(Order.items), selectinload(Order.payment)]
-    if with_events:
-        options.append(selectinload(Order.events))
+def _load_order(db: Session, order_id: int) -> Order | None:
     return db.scalars(
         select(Order)
-        .options(*options)
+        .options(*ORDER_LOAD_OPTIONS)
         .where(Order.id == order_id)
         .execution_options(populate_existing=True)
     ).first()
@@ -203,7 +210,7 @@ def create_order(
                 return existing, False
         raise
 
-    created = _load_order(db, order.id, with_events=True)
+    created = _load_order(db, order.id)
     if created is None:  # pragma: no cover - acabou de ser gravado
         raise NotFound("Pedido não encontrado.")
     return created, True
@@ -213,13 +220,15 @@ def _find_by_idempotency_key(db: Session, customer_id: int, key: str) -> Order |
     order_id = db.scalar(
         select(Order.id).where(Order.customer_id == customer_id, Order.idempotency_key == key)
     )
-    return _load_order(db, order_id, with_events=True) if order_id else None
+    return _load_order(db, order_id) if order_id else None
 
 
 # ---------------------------------------------------------------- mudanças de status
 
 
-def apply_action(db: Session, order_id: int, action: OrderAction, user: User) -> tuple[Order, str]:
+def apply_action(
+    db: Session, order_id: int, action: OrderAction, user: User, reason: str | None = None
+) -> tuple[Order, str]:
     # A linha do pedido fica travada: dois cliques simultâneos não aplicam a ação duas vezes.
     order = db.scalars(
         select(Order)
@@ -231,6 +240,10 @@ def apply_action(db: Session, order_id: int, action: OrderAction, user: User) ->
         raise NotFound("Pedido não encontrado.")
 
     transition = resolve(action, order.status, user.role, is_owner=order.customer_id == user.id)
+    if transition.requires_reason and not reason:
+        raise InvalidInput(
+            "Informe o motivo para o cliente.", fields={"reason": "Informe o motivo."}
+        )
     previous = order.status
     order.status = transition.to_status
     db.add(
@@ -240,13 +253,15 @@ def apply_action(db: Session, order_id: int, action: OrderAction, user: User) ->
             to_status=transition.to_status,
             actor_id=user.id,
             actor_name=user.name,
+            # Motivo só faz sentido (e só é exibido) em recusas e cancelamentos.
+            note=reason if transition.to_status in VOIDED_STATUSES else None,
         )
     )
     if transition.restock:
         _restock(db, order.id)
     db.commit()
 
-    updated = _load_order(db, order_id, with_events=True)
+    updated = _load_order(db, order_id)
     if updated is None:  # pragma: no cover
         raise NotFound("Pedido não encontrado.")
     return updated, transition.message.format(id=order_id)
@@ -285,7 +300,7 @@ def _can_view(order: Order, user: User) -> bool:
 
 
 def get_order(db: Session, order_id: int, user: User) -> Order:
-    order = _load_order(db, order_id, with_events=True)
+    order = _load_order(db, order_id)
     if order is None or not _can_view(order, user):
         # 404 também para pedidos de outros clientes: não revela que o número existe.
         raise NotFound("Pedido não encontrado.")
@@ -324,7 +339,7 @@ def list_orders(db: Session, user: User, filters: OrderFilters) -> OrderPage:
         else (Order.created_at.desc(), Order.id.desc())
     )
     orders = db.scalars(
-        base.options(selectinload(Order.items), selectinload(Order.payment))
+        base.options(*ORDER_LOAD_OPTIONS)
         .order_by(*order_by)
         .offset((filters.page - 1) * filters.page_size)
         .limit(filters.page_size)

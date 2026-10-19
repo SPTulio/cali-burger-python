@@ -25,6 +25,7 @@ class Transition:
     message: str
     restock: bool = False
     owner_only: bool = False
+    requires_reason: bool = False
 
 
 TRANSITIONS: dict[OrderAction, Transition] = {
@@ -40,6 +41,7 @@ TRANSITIONS: dict[OrderAction, Transition] = {
         to_status=OrderStatus.REJECTED,
         message="Pedido nº {id} recusado. Os ingredientes voltaram para o estoque.",
         restock=True,
+        requires_reason=True,
     ),
     OrderAction.DISPATCH: Transition(
         roles=frozenset({Role.COOK, Role.MANAGER}),

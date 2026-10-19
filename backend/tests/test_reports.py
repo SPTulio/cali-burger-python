@@ -27,7 +27,7 @@ def test_report_excludes_cancelled_and_rejected_orders(clients, menu):
     cancelled = place(customer, (menu.classic, 3))
     rejected = place(customer, (menu.soda_item, 2))
     customer.post(f"/api/v1/orders/{cancelled}/actions/cancel")
-    manager.post(f"/api/v1/orders/{rejected}/actions/reject")
+    manager.post(f"/api/v1/orders/{rejected}/actions/reject", json={"reason": "Item em falta"})
 
     report = manager.get("/api/v1/reports/sales").json()
 

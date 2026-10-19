@@ -136,6 +136,8 @@ class OrderStatusEvent(Base):
         ForeignKey("users.id", ondelete="SET NULL"), index=True
     )
     actor_name: Mapped[str | None] = mapped_column(String(100))
+    # Motivo informado na recusa ou no cancelamento (mostrado ao cliente).
+    note: Mapped[str | None] = mapped_column(String(255))
     created_at: Mapped[CreatedAt]
 
     order: Mapped[Order] = relationship(back_populates="events")

@@ -111,6 +111,7 @@ export interface OrderEvent {
   from_status: OrderStatus | null;
   to_status: OrderStatus;
   actor_name: string | null;
+  note: string | null;
   created_at: string;
 }
 
@@ -125,6 +126,7 @@ export interface Order {
   updated_at: string;
   items: OrderItem[];
   payment: { method: "pix"; amount: Money; paid_at: string } | null;
+  status_reason: string | null;
   events: OrderEvent[] | null;
   available_actions: OrderAction[];
 }
