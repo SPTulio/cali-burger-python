@@ -34,6 +34,7 @@ from app.modules.orders.schemas import (
     PaymentOut,
 )
 from app.modules.orders.state_machine import OrderAction, available_actions, resolve
+from app.modules.store import delivery
 from app.modules.store import service as store
 from app.modules.users.models import Role, User
 
@@ -64,7 +65,11 @@ def to_out(order: Order, user: User, *, with_events: bool = False) -> OrderOut:
         customer_id=order.customer_id,
         customer_name=order.customer_name,
         delivery_address=order.delivery_address,
+        subtotal=order.subtotal,
+        delivery_fee=order.delivery_fee,
         total=order.total,
+        eta_min_minutes=order.eta_min_minutes,
+        eta_max_minutes=order.eta_max_minutes,
         created_at=order.created_at,
         updated_at=order.updated_at,
         items=[OrderItemOut.model_validate(i) for i in order.items],
@@ -129,6 +134,18 @@ def create_order(
         raise BusinessRuleError(
             f"Indisponível no momento: {', '.join(paused)}. Retire do carrinho para continuar.",
             code="item_unavailable",
+        )
+
+    # Taxa e previsão antes de travar o estoque: fora da área, nada é reservado.
+    items_total = sum(
+        (money(products[m].price * line.quantity) for m, line in lines.items()), Decimal("0")
+    )
+    district = None if pickup or customer.address is None else customer.address.district
+    shipping = delivery.quote(db, data.fulfillment, district, items_total)
+    if not shipping.served or shipping.fee is None:
+        raise BusinessRuleError(
+            shipping.message or "Ainda não entregamos neste endereço.",
+            code="outside_delivery_area",
         )
 
     # Quanto de cada ingrediente o pedido inteiro consome.
@@ -196,11 +213,15 @@ def create_order(
         if pickup or customer.address is None
         else customer.address.one_line(),
         status=OrderStatus.AWAITING_ACCEPTANCE,
-        total=money(total),
+        subtotal=money(total),
+        delivery_fee=shipping.fee,
+        total=money(total + shipping.fee),
+        eta_min_minutes=shipping.eta_min,
+        eta_max_minutes=shipping.eta_max,
         idempotency_key=idempotency_key,
         items=items,
         consumptions=[OrderConsumption(ingredient_id=i, quantity=q) for i, q in needed.items()],
-        payment=Payment(method=PaymentMethod.PIX, amount=money(total)),
+        payment=Payment(method=PaymentMethod.PIX, amount=money(total + shipping.fee)),
         events=[
             OrderStatusEvent(
                 from_status=None,

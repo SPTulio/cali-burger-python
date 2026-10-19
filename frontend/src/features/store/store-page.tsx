@@ -11,7 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader } from "@/components/ui/dialog";
 import { Field, FormError, Input } from "@/components/ui/field";
 import { Badge, Card, CardHeader, Skeleton } from "@/components/ui/primitives";
-import { shortTime, useStoreStatus, WEEKDAY_LABELS } from "@/features/store/use-store-status";
+import { DeliveryCard } from "@/features/store/delivery-card";
+import { settingsInput, shortTime, useStoreStatus, WEEKDAY_LABELS } from "@/features/store/use-store-status";
 import type { StoreStatus } from "@/types/api";
 
 export function StorePage() {
@@ -32,6 +33,7 @@ export function StorePage() {
           <PauseCard status={store.data} />
           <HoursCard key={JSON.stringify(store.data.hours)} status={store.data} />
           <SettingsCard key={`${store.data.prep_time_minutes}-${store.data.pickup_address}`} status={store.data} />
+          <DeliveryCard status={store.data} />
         </div>
       )}
     </div>
@@ -217,7 +219,12 @@ function SettingsCard({ status }: { status: StoreStatus }) {
   const value = Number(minutes);
   const invalid = !Number.isInteger(value) || value < 1 || value > 240;
   const update = useMutation({
-    mutationFn: () => storeApi.updateSettings(value, pickup.trim() || null),
+    mutationFn: () =>
+      storeApi.updateSettings({
+        ...settingsInput(status),
+        prep_time_minutes: value,
+        pickup_address: pickup.trim() || null,
+      }),
     onSuccess: (data) => {
       save(data);
       toast.success("Configurações salvas.");

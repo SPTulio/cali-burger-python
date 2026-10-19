@@ -1,8 +1,21 @@
-from fastapi import APIRouter
+from decimal import Decimal
+from typing import Annotated
 
-from app.modules.auth.dependencies import DbSession, ManagerUser
-from app.modules.store import service
-from app.modules.store.schemas import HoursIn, PauseIn, StoreSettingsIn, StoreStatusOut
+from fastapi import APIRouter, Query
+
+from app.modules.auth.dependencies import DbSession, ManagerUser, OptionalSession
+from app.modules.orders.models import Fulfillment
+from app.modules.store import delivery, service
+from app.modules.store.schemas import (
+    HoursIn,
+    PauseIn,
+    QuoteOut,
+    StoreSettingsIn,
+    StoreStatusOut,
+    ZoneOut,
+    ZonesIn,
+)
+from app.modules.users.models import Role
 
 router = APIRouter(prefix="/store", tags=["Loja"])
 
@@ -27,3 +40,34 @@ def set_pause(data: PauseIn, _: ManagerUser, db: DbSession) -> StoreStatusOut:
 @router.put("/settings", response_model=StoreStatusOut, summary="Configurações da loja")
 def update_settings(data: StoreSettingsIn, _: ManagerUser, db: DbSession) -> StoreStatusOut:
     return service.update_settings(db, data)
+
+
+@router.get(
+    "/quote",
+    response_model=QuoteOut,
+    summary="Taxa de entrega e tempo estimado (usa o bairro do cliente logado)",
+)
+def get_quote(
+    db: DbSession,
+    session: OptionalSession,
+    fulfillment: Fulfillment = Fulfillment.DELIVERY,
+    subtotal: Annotated[Decimal, Query(ge=0, le=99999)] = Decimal("0"),
+) -> QuoteOut:
+    user = session.user if session else None
+    district = (
+        user.address.district
+        if user and user.role == Role.CUSTOMER and user.address is not None
+        else None
+    )
+    result = delivery.quote(db, fulfillment, district, subtotal)
+    return delivery.to_quote_out(fulfillment, result, db)
+
+
+@router.get("/zones", response_model=list[ZoneOut], summary="Bairros atendidos")
+def list_zones(_: ManagerUser, db: DbSession) -> list[ZoneOut]:
+    return delivery.list_zones(db)
+
+
+@router.put("/zones", response_model=list[ZoneOut], summary="Substituir os bairros atendidos")
+def replace_zones(data: ZonesIn, _: ManagerUser, db: DbSession) -> list[ZoneOut]:
+    return delivery.replace_zones(db, data.zones)

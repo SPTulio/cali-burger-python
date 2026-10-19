@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, CircleCheck, MapPin, Store } from "lucide-react";
+import { ArrowLeft, CircleCheck, MapPin, Store, Timer } from "lucide-react";
 import { Link, useParams, useSearchParams } from "react-router";
 
 import { orderingActive } from "@/features/orders/utils";
@@ -12,7 +12,7 @@ import { useSession } from "@/features/auth/session";
 import { OrderActions, OrderProgress } from "@/features/orders/components";
 import { ReorderButton } from "@/features/orders/reorder-button";
 import { useStoreStatus } from "@/features/store/use-store-status";
-import { formatCurrency, formatDateTime } from "@/lib/format";
+import { addMinutes, formatCurrency, formatDateTime, formatTime } from "@/lib/format";
 import { FULFILLMENT_LABEL, ORDER_STATUS } from "@/lib/labels";
 
 export function OrderDetailPage({ backTo = "/pedidos" }: { backTo?: string }) {
@@ -81,6 +81,14 @@ export function OrderDetailPage({ backTo = "/pedidos" }: { backTo?: string }) {
 
       <Card className="mb-6 p-5">
         <OrderProgress order={data} />
+        {orderingActive(data.status) && data.eta_min_minutes !== null && data.eta_max_minutes !== null && (
+          <p className="mt-4 flex items-center justify-center gap-2 border-t pt-4 text-sm text-muted-foreground">
+            <Timer className="size-4" aria-hidden />
+            Previsão de {data.fulfillment === "pickup" ? "retirada" : "entrega"}: entre{" "}
+            {formatTime(addMinutes(data.created_at, data.eta_min_minutes))} e{" "}
+            {formatTime(addMinutes(data.created_at, data.eta_max_minutes))}
+          </p>
+        )}
       </Card>
 
       <Card className="mb-6">
@@ -108,6 +116,24 @@ export function OrderDetailPage({ backTo = "/pedidos" }: { backTo?: string }) {
             ))}
           </tbody>
           <tfoot>
+            {data.fulfillment === "delivery" && (
+              <>
+                <tr className="border-t text-muted-foreground">
+                  <TD colSpan={3} className="text-right">
+                    Subtotal
+                  </TD>
+                  <TD className="tabular text-right">{formatCurrency(data.subtotal)}</TD>
+                </tr>
+                <tr className="text-muted-foreground">
+                  <TD colSpan={3} className="py-1 text-right">
+                    Taxa de entrega
+                  </TD>
+                  <TD className="tabular py-1 text-right">
+                    {Number(data.delivery_fee) === 0 ? "Grátis" : formatCurrency(data.delivery_fee)}
+                  </TD>
+                </tr>
+              </>
+            )}
             <tr className="border-t">
               <TD colSpan={3} className="text-right font-semibold">
                 Total

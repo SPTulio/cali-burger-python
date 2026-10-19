@@ -3,6 +3,8 @@ import { http } from "@/api/client";
 import type {
   Address,
   Category,
+  DeliveryQuote,
+  DeliveryZone,
   Fulfillment,
   IngredientAddResult,
   Ingredient,
@@ -21,6 +23,7 @@ import type {
   SessionResponse,
   Sex,
   StaffMember,
+  StoreSettingsInput,
   StoreStatus,
 } from "@/types/api";
 
@@ -136,8 +139,10 @@ export const storeApi = {
     http.put<StoreStatus>("/store/hours", { json: { hours } }),
   setPause: (paused: boolean, message: string | null) =>
     http.put<StoreStatus>("/store/pause", { json: { paused, message } }),
-  updateSettings: (prepTimeMinutes: number, pickupAddress: string | null) =>
-    http.put<StoreStatus>("/store/settings", {
-      json: { prep_time_minutes: prepTimeMinutes, pickup_address: pickupAddress },
-    }),
+  updateSettings: (data: StoreSettingsInput) => http.put<StoreStatus>("/store/settings", { json: data }),
+  quote: (fulfillment: Fulfillment, subtotal: number) =>
+    http.get<DeliveryQuote>("/store/quote", { params: { fulfillment, subtotal: subtotal.toFixed(2) } }),
+  zones: () => http.get<DeliveryZone[]>("/store/zones"),
+  replaceZones: (zones: Omit<DeliveryZone, "id">[]) =>
+    http.put<DeliveryZone[]>("/store/zones", { json: { zones } }),
 };

@@ -1,10 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
-import { Plus, UtensilsCrossed } from "lucide-react";
+import { Bike, Plus, Store, Timer, UtensilsCrossed } from "lucide-react";
 import { useMemo } from "react";
 import { Navigate, useOutletContext, useSearchParams } from "react-router";
 import { toast } from "sonner";
 
-import { catalogApi } from "@/api/endpoints";
+import { catalogApi, storeApi } from "@/api/endpoints";
 import { queryKeys } from "@/api/keys";
 import type { StorefrontContext } from "@/app/layouts";
 import { AvailabilityBadge, EmptyState, ErrorState, QuantityStepper } from "@/components/common";
@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/primitives";
 import { HOME_BY_ROLE, useSession } from "@/features/auth/session";
 import { MAX_ITEM_QUANTITY, useCart } from "@/features/cart/store";
 import { RecentOrders } from "@/features/menu/recent-orders";
+import { useStoreStatus } from "@/features/store/use-store-status";
 import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { Category, MenuItem } from "@/types/api";
@@ -49,6 +50,7 @@ export function MenuPage() {
         <p className="mt-1 text-muted-foreground">
           Hambúrgueres artesanais, acompanhamentos e bebidas — feitos na hora.
         </p>
+        <DeliveryInfo />
       </div>
 
       {session.data?.role === "customer" && <RecentOrders onReordered={openCart} />}
@@ -209,5 +211,33 @@ function MenuSkeleton() {
         </div>
       ))}
     </div>
+  );
+}
+
+/** Previsão e taxa no topo do cardápio: o que o cliente procura antes de escolher. */
+function DeliveryInfo() {
+  const quote = useQuery({ queryKey: queryKeys.quote("delivery", 0), queryFn: () => storeApi.quote("delivery", 0) });
+  const store = useStoreStatus();
+  if (!quote.data || !store.data?.accepting_orders) return null;
+  const fee = quote.data.delivery_fee;
+  return (
+    <p className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+      <span className="inline-flex items-center gap-1.5">
+        <Timer className="size-4" aria-hidden /> Entrega em {quote.data.eta_min_minutes}–{quote.data.eta_max_minutes} min
+      </span>
+      {fee !== null && quote.data.served && (
+        <span className="inline-flex items-center gap-1.5">
+          <Bike className="size-4" aria-hidden />
+          {Number(fee) === 0 ? "Entrega grátis" : `Taxa de entrega ${formatCurrency(fee)}`}
+          {quote.data.zone_name ? ` para ${quote.data.zone_name}` : ""}
+        </span>
+      )}
+      {quote.data.served === false && quote.data.message && <span>{quote.data.message}</span>}
+      {store.data.pickup_address && (
+        <span className="inline-flex items-center gap-1.5">
+          <Store className="size-4" aria-hidden /> Retirada no balcão disponível
+        </span>
+      )}
+    </p>
   );
 }

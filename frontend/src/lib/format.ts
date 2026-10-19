@@ -65,3 +65,8 @@ export function todayIso(offsetDays = 0): string {
 export function plural(count: number, singular: string, pluralForm: string): string {
   return `${count} ${count === 1 ? singular : pluralForm}`;
 }
+
+/** ISO + minutos → ISO (para janelas de previsão). */
+export function addMinutes(iso: string, minutes: number): string {
+  return new Date(new Date(iso).getTime() + minutes * 60_000).toISOString();
+}

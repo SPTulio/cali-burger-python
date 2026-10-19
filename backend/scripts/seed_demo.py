@@ -29,6 +29,7 @@ from app.modules.orders import service as orders
 from app.modules.orders.models import Fulfillment, Order
 from app.modules.orders.schemas import OrderCreateIn
 from app.modules.orders.state_machine import OrderAction
+from app.modules.store.models import DeliveryZone, StoreSettings
 from app.modules.users.models import CustomerAddress, Role, Sex, User
 
 DEMO_PASSWORD = "cali1234"
@@ -119,6 +120,7 @@ def main() -> None:
         ingredients = _ingredients(db)
         items = _menu(db, ingredients)
         customers, manager, cooks = _people(db)
+        _delivery(db)
         total = _orders(db, items, customers, manager, cooks)
         _adjust_stock_for_demo(db)
     print(
@@ -149,6 +151,25 @@ def _wipe() -> None:
     media = get_settings().menu_media_dir
     if media.exists():
         shutil.rmtree(media)
+
+
+# Bairros atendidos: taxa e minutos extras de deslocamento. Fora deles, só retirada.
+ZONES = [
+    ("Centro", "5.00", 0),
+    ("Rebouças", "5.00", 0),
+    ("Batel", "6.50", 5),
+    ("Água Verde", "7.00", 10),
+]
+
+
+def _delivery(db: Session) -> None:
+    db.add_all(
+        DeliveryZone(name=name, fee=Decimal(fee), extra_minutes=extra) for name, fee, extra in ZONES
+    )
+    settings = db.get(StoreSettings, 1)
+    if settings:
+        settings.free_delivery_above = Decimal("90.00")
+    db.commit()
 
 
 def _ingredients(db: Session) -> dict[str, Ingredient]:

@@ -72,7 +72,11 @@ class OrderOut(BaseModel):
     customer_id: int | None
     customer_name: str
     delivery_address: str | None
+    subtotal: Decimal
+    delivery_fee: Decimal
     total: Decimal
+    eta_min_minutes: int | None = Field(description="Previsão: minutos após o pedido (mínimo)")
+    eta_max_minutes: int | None
     created_at: UtcDateTime
     updated_at: UtcDateTime
     items: list[OrderItemOut]

@@ -289,6 +289,8 @@ def _import_orders(
                 customer_name=row["nome_cliente"],
                 delivery_address=None,  # o sistema antigo não guardava o endereço no pedido
                 status=status,
+                subtotal=Decimal(row["valor"]),
+                delivery_fee=Decimal("0.00"),  # o sistema antigo não cobrava taxa de entrega
                 total=Decimal(row["valor"]),
                 created_at=created_at,
                 updated_at=created_at,

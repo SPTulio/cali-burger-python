@@ -1,13 +1,13 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bike, Clock, MapPin, QrCode, ShieldCheck, ShoppingBag, Store, TriangleAlert } from "lucide-react";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Bike, Clock, MapPin, QrCode, ShieldCheck, ShoppingBag, Store, Timer, TriangleAlert } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
 
 import { ApiError, errorMessage } from "@/api/client";
-import { accountApi, catalogApi, ordersApi } from "@/api/endpoints";
+import { accountApi, catalogApi, ordersApi, storeApi } from "@/api/endpoints";
 import { queryKeys } from "@/api/keys";
 import { EmptyState, ErrorState } from "@/components/common";
 import { Button } from "@/components/ui/button";
@@ -39,6 +39,16 @@ export function CheckoutPage() {
   const pickupAddress = store.data?.pickup_address ?? null;
   // Se a loja desativar a retirada, volta para entrega.
   const fulfillment: Fulfillment = pickupAddress ? choice : "delivery";
+  // Taxa e previsão calculadas pelo servidor (o valor final é recalculado ao confirmar).
+  const quote = useQuery({
+    queryKey: queryKeys.quote(fulfillment, total),
+    queryFn: () => storeApi.quote(fulfillment, total),
+    enabled: lines.length > 0,
+    placeholderData: keepPreviousData,
+  });
+  const fee = Number(quote.data?.delivery_fee ?? 0);
+  const outsideArea = quote.data ? !quote.data.served : false;
+  const freeAbove = quote.data?.free_delivery_above ? Number(quote.data.free_delivery_above) : null;
 
   // Itens que saíram do cardápio são retirados do carrinho (como no sistema original).
   useEffect(() => {
@@ -83,7 +93,7 @@ export function CheckoutPage() {
     },
     onError: (error) => {
       if (error instanceof ApiError && error.code === "missing_address") setAddressOpen(true);
-      if (error instanceof ApiError && error.code.startsWith("store_")) {
+      if (error instanceof ApiError && (error.code.startsWith("store_") || error.code === "outside_delivery_area")) {
         queryClient.invalidateQueries({ queryKey: queryKeys.store });
       }
       if (error instanceof ApiError && error.status === 409) {
@@ -229,21 +239,52 @@ export function CheckoutPage() {
                 </div>
               </div>
             )}
+            {outsideArea && quote.data?.message && (
+              <div role="alert" className="flex gap-2 rounded-md bg-warning-soft p-3 text-sm text-warning">
+                <MapPin className="mt-0.5 size-4 shrink-0" aria-hidden />
+                <p>
+                  {quote.data.message}
+                  {pickupAddress && " Você pode retirar no balcão."}
+                </p>
+              </div>
+            )}
             <dl className="flex flex-col gap-2 text-sm">
               <div className="flex justify-between text-muted-foreground">
                 <dt>Subtotal</dt>
                 <dd className="tabular">{formatCurrency(total)}</dd>
               </div>
+              {fulfillment === "delivery" && (
+                <div className="flex justify-between text-muted-foreground">
+                  <dt>Taxa de entrega{quote.data?.zone_name ? ` (${quote.data.zone_name})` : ""}</dt>
+                  <dd className="tabular">
+                    {outsideArea ? "—" : fee === 0 ? <span className="text-success">Grátis</span> : formatCurrency(fee)}
+                  </dd>
+                </div>
+              )}
               <div className="flex justify-between border-t pt-3 text-base font-semibold">
                 <dt>Total</dt>
-                <dd className="tabular">{formatCurrency(total)}</dd>
+                <dd className="tabular">{formatCurrency(total + (outsideArea ? 0 : fee))}</dd>
               </div>
             </dl>
+            {fulfillment === "delivery" && freeAbove !== null && fee > 0 && total < freeAbove && (
+              <p className="-mt-2 text-xs text-muted-foreground">
+                Faltam {formatCurrency(freeAbove - total)} para a entrega grátis.
+              </p>
+            )}
+            {quote.data && !outsideArea && (
+              <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Timer className="size-4" aria-hidden />
+                Previsão de {fulfillment === "pickup" ? "retirada" : "entrega"}: {quote.data.eta_min_minutes}–
+                {quote.data.eta_max_minutes} min
+              </p>
+            )}
             <Button
               size="lg"
               onClick={() => placeOrder.mutate()}
               loading={placeOrder.isPending}
-              disabled={(fulfillment === "delivery" && !address) || stockWarnings.length > 0 || storeClosed}
+              disabled={
+                (fulfillment === "delivery" && (!address || outsideArea)) || stockWarnings.length > 0 || storeClosed
+              }
             >
               <ShieldCheck /> Confirmar pagamento
             </Button>
@@ -278,6 +319,7 @@ export function AddressDialog({
     mutationFn: accountApi.updateAddress,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.profile });
+      queryClient.invalidateQueries({ queryKey: queryKeys.store }); // a taxa depende do bairro
       toast.success("Endereço atualizado.");
       onOpenChange(false);
     },

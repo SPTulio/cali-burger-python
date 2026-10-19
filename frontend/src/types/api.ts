@@ -133,7 +133,12 @@ export interface Order {
   customer_id: number | null;
   customer_name: string;
   delivery_address: string | null;
+  subtotal: Money;
+  delivery_fee: Money;
   total: Money;
+  /** Previsão em minutos a partir de created_at. */
+  eta_min_minutes: number | null;
+  eta_max_minutes: number | null;
   created_at: string;
   updated_at: string;
   items: OrderItem[];
@@ -216,4 +221,35 @@ export interface StoreStatus {
   prep_time_minutes: number;
   /** Retirada no balcão disponível quando preenchido. */
   pickup_address: string | null;
+  delivery_time_minutes: number;
+  default_delivery_fee: Money | null;
+  free_delivery_above: Money | null;
+}
+
+export interface StoreSettingsInput {
+  prep_time_minutes: number;
+  pickup_address: string | null;
+  delivery_time_minutes: number;
+  default_delivery_fee: string | null;
+  free_delivery_above: string | null;
+}
+
+export interface DeliveryZone {
+  id: number;
+  name: string;
+  fee: Money;
+  extra_minutes: number;
+  is_active: boolean;
+}
+
+export interface DeliveryQuote {
+  fulfillment: Fulfillment;
+  served: boolean;
+  message: string | null;
+  zone_name: string | null;
+  /** null enquanto o bairro não é conhecido (visitante). */
+  delivery_fee: Money | null;
+  free_delivery_above: Money | null;
+  eta_min_minutes: number;
+  eta_max_minutes: number;
 }

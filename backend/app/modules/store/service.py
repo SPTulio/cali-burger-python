@@ -73,6 +73,9 @@ def get_status(db: Session) -> StoreStatusOut:
         hours=[HourOut.model_validate(h) for h in hours],
         prep_time_minutes=settings.prep_time_minutes,
         pickup_address=settings.pickup_address,
+        delivery_time_minutes=settings.delivery_time_minutes,
+        default_delivery_fee=settings.default_delivery_fee,
+        free_delivery_above=settings.free_delivery_above,
     )
 
 
@@ -112,5 +115,8 @@ def update_settings(db: Session, data: StoreSettingsIn) -> StoreStatusOut:
     settings = get_settings_row(db, lock=True)
     settings.prep_time_minutes = data.prep_time_minutes
     settings.pickup_address = data.pickup_address
+    settings.delivery_time_minutes = data.delivery_time_minutes
+    settings.default_delivery_fee = data.default_delivery_fee
+    settings.free_delivery_above = data.free_delivery_above
     db.commit()
     return get_status(db)

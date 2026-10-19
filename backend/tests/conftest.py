@@ -93,7 +93,8 @@ def clean_tables(database_schema: None) -> None:
         conn.execute(
             text(
                 "UPDATE store_settings SET is_paused = 0, pause_message = NULL, "
-                "prep_time_minutes = 20, pickup_address = NULL"
+                "prep_time_minutes = 20, pickup_address = NULL, delivery_time_minutes = 15, "
+                "default_delivery_fee = NULL, free_delivery_above = NULL"
             )
         )
 

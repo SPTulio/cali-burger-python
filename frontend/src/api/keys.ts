@@ -18,4 +18,6 @@ export const queryKeys = {
   report: (start?: string, end?: string) => ["report", { start, end }] as const,
   staff: ["staff"] as const,
   store: ["store"] as const,
+  quote: (fulfillment: string, subtotal: number) => ["store", "quote", { fulfillment, subtotal }] as const,
+  zones: ["store", "zones"] as const,
 };

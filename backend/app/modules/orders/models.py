@@ -71,7 +71,12 @@ class Order(Base):
         default=Fulfillment.DELIVERY,
         server_default=Fulfillment.DELIVERY.value,
     )
-    total: Mapped[Money]
+    subtotal: Mapped[Money]  # itens
+    delivery_fee: Mapped[Money]
+    total: Mapped[Money]  # subtotal + taxa de entrega
+    # Previsão calculada na criação (minutos a partir de created_at).
+    eta_min_minutes: Mapped[int | None]
+    eta_max_minutes: Mapped[int | None]
     idempotency_key: Mapped[str | None] = mapped_column(String(64))
     created_at: Mapped[CreatedAt]
     updated_at: Mapped[UpdatedAt]
