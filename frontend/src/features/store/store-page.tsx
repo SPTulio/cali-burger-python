@@ -31,7 +31,7 @@ export function StorePage() {
         <div className="flex flex-col gap-6">
           <PauseCard status={store.data} />
           <HoursCard key={JSON.stringify(store.data.hours)} status={store.data} />
-          <PrepTimeCard key={store.data.prep_time_minutes} status={store.data} />
+          <SettingsCard key={`${store.data.prep_time_minutes}-${store.data.pickup_address}`} status={store.data} />
         </div>
       )}
     </div>
@@ -210,38 +210,48 @@ function HoursCard({ status }: { status: StoreStatus }) {
   );
 }
 
-function PrepTimeCard({ status }: { status: StoreStatus }) {
+function SettingsCard({ status }: { status: StoreStatus }) {
   const save = useSaveStore();
   const [minutes, setMinutes] = useState(String(status.prep_time_minutes));
+  const [pickup, setPickup] = useState(status.pickup_address ?? "");
   const value = Number(minutes);
   const invalid = !Number.isInteger(value) || value < 1 || value > 240;
   const update = useMutation({
-    mutationFn: () => storeApi.updateSettings(value),
+    mutationFn: () => storeApi.updateSettings(value, pickup.trim() || null),
     onSuccess: (data) => {
       save(data);
-      toast.success("Meta de preparo salva.");
+      toast.success("Configurações salvas.");
     },
     onError: (error) => toast.error(errorMessage(error)),
   });
   return (
     <Card>
-      <CardHeader
-        title="Meta de preparo"
-        description="Base do tempo estimado mostrado ao cliente e das cores do cronômetro da cozinha."
-      />
+      <CardHeader title="Preparo e retirada" />
       <form
-        className="flex flex-wrap items-start gap-3 p-5"
+        className="grid gap-4 p-5 sm:grid-cols-[180px_1fr]"
         onSubmit={(e) => {
           e.preventDefault();
           if (!invalid) update.mutate();
         }}
       >
-        <Field label="Minutos por pedido" error={invalid ? "Informe de 1 a 240 minutos." : undefined} className="w-48">
+        <Field
+          label="Meta de preparo (min)"
+          error={invalid ? "Informe de 1 a 240 minutos." : undefined}
+          description="Base do tempo estimado e das cores do cronômetro da cozinha."
+        >
           <Input type="number" min={1} max={240} value={minutes} onChange={(e) => setMinutes(e.target.value)} />
         </Field>
-        <Button type="submit" variant="outline" className="sm:mt-[22px]" loading={update.isPending} disabled={invalid}>
-          Salvar
-        </Button>
+        <Field
+          label="Endereço para retirada no balcão"
+          description="Deixe em branco para oferecer só entrega."
+        >
+          <Input maxLength={255} value={pickup} onChange={(e) => setPickup(e.target.value)} placeholder="Rua, número – bairro" />
+        </Field>
+        <div className="flex justify-end sm:col-span-2">
+          <Button type="submit" variant="outline" loading={update.isPending} disabled={invalid}>
+            Salvar
+          </Button>
+        </div>
       </form>
     </Card>
   );

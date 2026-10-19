@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Clock, MapPin, QrCode, ShieldCheck, ShoppingBag, TriangleAlert } from "lucide-react";
+import { Bike, Clock, MapPin, QrCode, ShieldCheck, ShoppingBag, Store, TriangleAlert } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router";
@@ -18,9 +18,9 @@ import { CartLineRow } from "@/features/cart/cart-sheet";
 import { cartTotals, useCart } from "@/features/cart/store";
 import { useStoreStatus } from "@/features/store/use-store-status";
 import { formatCurrency } from "@/lib/format";
-import { newIdempotencyKey } from "@/lib/utils";
+import { cn, newIdempotencyKey } from "@/lib/utils";
 import { addressSchema, applyApiErrors } from "@/lib/validation";
-import type { Address } from "@/types/api";
+import type { Address, Fulfillment } from "@/types/api";
 
 export function CheckoutPage() {
   const lines = useCart((s) => s.lines);
@@ -30,11 +30,15 @@ export function CheckoutPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [addressOpen, setAddressOpen] = useState(false);
+  const [choice, setChoice] = useState<Fulfillment>("delivery");
 
   const profile = useQuery({ queryKey: queryKeys.profile, queryFn: accountApi.profile });
   const menu = useQuery({ queryKey: queryKeys.menu(), queryFn: () => catalogApi.menu() });
   const store = useStoreStatus();
   const storeClosed = store.data ? !store.data.accepting_orders : false;
+  const pickupAddress = store.data?.pickup_address ?? null;
+  // Se a loja desativar a retirada, volta para entrega.
+  const fulfillment: Fulfillment = pickupAddress ? choice : "delivery";
 
   // Itens que saíram do cardápio são retirados do carrinho (como no sistema original).
   useEffect(() => {
@@ -68,6 +72,7 @@ export function CheckoutPage() {
     mutationFn: () =>
       ordersApi.create(
         lines.map((l) => ({ menu_item_id: l.menuItemId, quantity: l.quantity, notes: l.notes.trim() || null })),
+        fulfillment,
         idempotencyKey,
       ),
     onSuccess: (order) => {
@@ -111,36 +116,76 @@ export function CheckoutPage() {
       <div className="grid items-start gap-6 lg:grid-cols-[1fr_380px]">
         <div className="flex flex-col gap-6">
           <Card>
-            <CardHeader
-              title="Endereço de entrega"
-              actions={
-                address && (
-                  <Button variant="outline" size="sm" onClick={() => setAddressOpen(true)}>
-                    Alterar
-                  </Button>
-                )
-              }
-            />
-            <div className="flex items-start gap-3 px-5 py-4">
-              <MapPin className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
-              {profile.isPending ? (
-                <Skeleton className="h-4 w-2/3" />
-              ) : profile.isError ? (
-                <ErrorState error={profile.error} onRetry={() => profile.refetch()} />
-              ) : address ? (
-                <p className="text-sm">
-                  {address.street}, {address.district}
-                  <br />
-                  <span className="text-muted-foreground">
-                    {address.city} - {address.state}
-                  </span>
-                </p>
+            <CardHeader title="Como você quer receber?" />
+            <div className="flex flex-col gap-4 px-5 py-4">
+              {pickupAddress && (
+                <div role="radiogroup" aria-label="Forma de recebimento" className="grid gap-3 sm:grid-cols-2">
+                  {(
+                    [
+                      { value: "delivery", label: "Entrega", hint: "No seu endereço", icon: Bike },
+                      { value: "pickup", label: "Retirar no balcão", hint: "Sem taxa de entrega", icon: Store },
+                    ] as const
+                  ).map(({ value, label, hint, icon: Icon }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      role="radio"
+                      aria-label={`${label}: ${hint}`}
+                      aria-checked={fulfillment === value}
+                      onClick={() => setChoice(value)}
+                      className={cn(
+                        "flex items-center gap-3 rounded-lg border p-3 text-left transition-colors",
+                        fulfillment === value
+                          ? "border-primary bg-primary-soft ring-1 ring-primary"
+                          : "hover:bg-muted",
+                      )}
+                    >
+                      <Icon className="size-5 shrink-0 text-primary" aria-hidden />
+                      <span>
+                        <span className="block text-sm font-medium">{label}</span>
+                        <span className="block text-xs text-muted-foreground">{hint}</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {fulfillment === "pickup" ? (
+                <div className="flex items-start gap-3">
+                  <Store className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
+                  <p className="text-sm">
+                    Retire em: {pickupAddress}
+                    <br />
+                    <span className="text-muted-foreground">Avisamos aqui quando o pedido estiver pronto.</span>
+                  </p>
+                </div>
               ) : (
-                <div className="text-sm">
-                  <p>Nenhum endereço cadastrado.</p>
-                  <Button variant="link" onClick={() => setAddressOpen(true)}>
-                    Cadastrar endereço
-                  </Button>
+                <div className="flex items-start gap-3">
+                  <MapPin className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
+                  {profile.isPending ? (
+                    <Skeleton className="h-4 w-2/3" />
+                  ) : profile.isError ? (
+                    <ErrorState error={profile.error} onRetry={() => profile.refetch()} />
+                  ) : address ? (
+                    <div className="flex flex-1 flex-wrap items-start justify-between gap-2">
+                      <p className="text-sm">
+                        {address.street}, {address.district}
+                        <br />
+                        <span className="text-muted-foreground">
+                          {address.city} - {address.state}
+                        </span>
+                      </p>
+                      <Button variant="outline" size="sm" onClick={() => setAddressOpen(true)}>
+                        Alterar
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="text-sm">
+                      <p>Nenhum endereço cadastrado.</p>
+                      <Button variant="link" onClick={() => setAddressOpen(true)}>
+                        Cadastrar endereço
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -198,7 +243,7 @@ export function CheckoutPage() {
               size="lg"
               onClick={() => placeOrder.mutate()}
               loading={placeOrder.isPending}
-              disabled={!address || stockWarnings.length > 0 || storeClosed}
+              disabled={(fulfillment === "delivery" && !address) || stockWarnings.length > 0 || storeClosed}
             >
               <ShieldCheck /> Confirmar pagamento
             </Button>

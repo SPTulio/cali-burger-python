@@ -1,4 +1,4 @@
-import type { OrderAction, OrderStatus, Role, Sex, StockLevel } from "@/types/api";
+import type { Fulfillment, OrderAction, OrderStatus, Role, Sex, StockLevel } from "@/types/api";
 
 export type Tone = "neutral" | "success" | "warning" | "danger" | "info" | "violet" | "primary";
 
@@ -12,6 +12,11 @@ export const ORDER_STATUS: Record<OrderStatus, { label: string; tone: Tone; cust
     label: "Em preparação",
     tone: "info",
     customerHint: "Seu pedido está sendo preparado na cozinha.",
+  },
+  ready: {
+    label: "Pronto",
+    tone: "primary",
+    customerHint: "Seu pedido está pronto.",
   },
   out_for_delivery: {
     label: "A caminho",
@@ -30,6 +35,7 @@ export const ORDER_STATUS: Record<OrderStatus, { label: string; tone: Tone; cust
 export const ORDER_STATUS_ORDER: OrderStatus[] = [
   "awaiting_acceptance",
   "in_preparation",
+  "ready",
   "out_for_delivery",
   "completed",
   "cancelled",
@@ -51,10 +57,20 @@ export const ORDER_ACTION: Record<
     confirmText: "O cliente será avisado e os ingredientes voltam para o estoque.",
     destructive: true,
   },
+  ready: {
+    label: "Pronto",
+    confirmTitle: "Marcar como pronto",
+    confirmText: "O balcão será avisado para entregar ao entregador ou ao cliente.",
+  },
   dispatch: {
     label: "Saiu para entrega",
     confirmTitle: "Enviar para entrega",
-    confirmText: "Confirme que o pedido está pronto e saiu para entrega.",
+    confirmText: "Confirme que o pedido saiu com o entregador.",
+  },
+  pick_up: {
+    label: "Entregue no balcão",
+    confirmTitle: "Confirmar retirada",
+    confirmText: "Confirme que o cliente retirou o pedido no balcão.",
   },
   cancel: {
     label: "Cancelar pedido",
@@ -102,3 +118,8 @@ export const CANCEL_REASONS = [
 ] as const;
 
 export const OTHER_REASON = "Outro motivo";
+
+export const FULFILLMENT_LABEL: Record<Fulfillment, string> = {
+  delivery: "Entrega",
+  pickup: "Retirada no balcão",
+};

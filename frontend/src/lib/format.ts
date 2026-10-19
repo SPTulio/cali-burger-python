@@ -43,10 +43,6 @@ export function formatRelative(iso: string, now: number = Date.now()): string {
   return days === 1 ? "ontem" : `há ${days} dias`;
 }
 
-export function minutesSince(iso: string, now: number = Date.now()): number {
-  return Math.max(0, Math.floor((now - new Date(iso).getTime()) / 60000));
-}
-
 export function formatCpf(value: string): string {
   const d = value.replace(/\D/g, "").slice(0, 11);
   if (d.length <= 3) return d;

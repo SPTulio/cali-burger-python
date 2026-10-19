@@ -1,4 +1,15 @@
-import { Ban, Check, ChefHat, CircleX, ClipboardCheck, PackageCheck, Truck, type LucideIcon } from "lucide-react";
+import {
+  Ban,
+  BellRing,
+  Check,
+  ChefHat,
+  CircleX,
+  ClipboardCheck,
+  HandPlatter,
+  PackageCheck,
+  Truck,
+  type LucideIcon,
+} from "lucide-react";
 import { useState } from "react";
 
 import { Button, type ButtonProps } from "@/components/ui/button";
@@ -8,12 +19,14 @@ import { formatDateTime, formatTime } from "@/lib/format";
 import { CANCEL_REASONS, ORDER_ACTION, OTHER_REASON, REJECT_REASONS } from "@/lib/labels";
 import { cn } from "@/lib/utils";
 import { useOrderAction } from "@/features/orders/use-order-action";
-import type { Order, OrderAction, OrderItem, OrderStatus } from "@/types/api";
+import type { Fulfillment, Order, OrderAction, OrderItem, OrderStatus } from "@/types/api";
 
 const ACTION_STYLE: Record<OrderAction, ButtonProps["variant"]> = {
   accept: "primary",
   reject: "destructive-outline",
+  ready: "primary",
   dispatch: "primary",
+  pick_up: "primary",
   cancel: "destructive-outline",
   complete: "primary",
 };
@@ -21,7 +34,9 @@ const ACTION_STYLE: Record<OrderAction, ButtonProps["variant"]> = {
 const ACTION_ICON: Record<OrderAction, LucideIcon> = {
   accept: Check,
   reject: Ban,
+  ready: BellRing,
   dispatch: Truck,
+  pick_up: HandPlatter,
   cancel: CircleX,
   complete: PackageCheck,
 };
@@ -164,12 +179,23 @@ export function OrderItemsList({ items, showNotes = true }: { items: OrderItem[]
   );
 }
 
-const STEPS: { status: OrderStatus; label: string; icon: LucideIcon }[] = [
-  { status: "awaiting_acceptance", label: "Recebido", icon: ClipboardCheck },
-  { status: "in_preparation", label: "Em preparação", icon: ChefHat },
-  { status: "out_for_delivery", label: "A caminho", icon: Truck },
-  { status: "completed", label: "Entregue", icon: PackageCheck },
-];
+type Step = { status: OrderStatus; label: string; icon: LucideIcon };
+
+const STEPS: Record<Fulfillment, Step[]> = {
+  delivery: [
+    { status: "awaiting_acceptance", label: "Recebido", icon: ClipboardCheck },
+    { status: "in_preparation", label: "Em preparação", icon: ChefHat },
+    { status: "ready", label: "Pronto", icon: BellRing },
+    { status: "out_for_delivery", label: "A caminho", icon: Truck },
+    { status: "completed", label: "Entregue", icon: PackageCheck },
+  ],
+  pickup: [
+    { status: "awaiting_acceptance", label: "Recebido", icon: ClipboardCheck },
+    { status: "in_preparation", label: "Em preparação", icon: ChefHat },
+    { status: "ready", label: "Pronto para retirar", icon: BellRing },
+    { status: "completed", label: "Retirado", icon: HandPlatter },
+  ],
+};
 
 /** Progresso do pedido com o horário de cada etapa (linha do tempo vinda do servidor). */
 export function OrderProgress({ order }: { order: Order }) {
@@ -194,10 +220,14 @@ export function OrderProgress({ order }: { order: Order }) {
     );
   }
 
-  const current = STEPS.findIndex((s) => s.status === order.status);
+  const steps = STEPS[order.fulfillment];
+  const current = steps.findIndex((s) => s.status === order.status);
   return (
-    <ol className="grid grid-cols-4 gap-2" aria-label="Andamento do pedido">
-      {STEPS.map((step, index) => {
+    <ol
+      className={cn("grid gap-2", steps.length === 5 ? "grid-cols-5" : "grid-cols-4")}
+      aria-label="Andamento do pedido"
+    >
+      {steps.map((step, index) => {
         const done = index <= current;
         const time = at(step.status);
         const Icon = step.icon;

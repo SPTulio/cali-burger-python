@@ -14,6 +14,7 @@ from app.modules.catalog.service import load_items_for_order
 from app.modules.inventory.models import Ingredient
 from app.modules.orders.models import (
     VOIDED_STATUSES,
+    Fulfillment,
     Order,
     OrderConsumption,
     OrderItem,
@@ -58,6 +59,8 @@ def to_out(order: Order, user: User, *, with_events: bool = False) -> OrderOut:
     return OrderOut(
         id=order.id,
         status=order.status,
+        fulfillment=order.fulfillment,
+        status_since=last_event.created_at if last_event else order.created_at,
         customer_id=order.customer_id,
         customer_name=order.customer_name,
         delivery_address=order.delivery_address,
@@ -69,7 +72,7 @@ def to_out(order: Order, user: User, *, with_events: bool = False) -> OrderOut:
         status_reason=last_event.note if last_event and order.status in VOIDED_STATUSES else None,
         events=[OrderEventOut.model_validate(e) for e in order.events] if with_events else None,
         available_actions=available_actions(
-            order.status, user.role, is_owner=order.customer_id == user.id
+            order.status, user.role, order.fulfillment, is_owner=order.customer_id == user.id
         ),
     )
 
@@ -102,7 +105,13 @@ def create_order(
 
     store.ensure_accepting_orders(db)
 
-    if customer.address is None:
+    pickup = data.fulfillment == Fulfillment.PICKUP
+    if pickup and not store.get_settings_row(db).pickup_address:
+        raise BusinessRuleError(
+            "A retirada no balcão não está disponível. Escolha a entrega.",
+            code="pickup_unavailable",
+        )
+    if not pickup and customer.address is None:
         raise BusinessRuleError(
             "Cadastre um endereço de entrega antes de finalizar o pedido.",
             code="missing_address",
@@ -182,7 +191,10 @@ def create_order(
     order = Order(
         customer_id=customer.id,
         customer_name=customer.name,
-        delivery_address=customer.address.one_line(),
+        fulfillment=data.fulfillment,
+        delivery_address=None
+        if pickup or customer.address is None
+        else customer.address.one_line(),
         status=OrderStatus.AWAITING_ACCEPTANCE,
         total=money(total),
         idempotency_key=idempotency_key,
@@ -239,7 +251,9 @@ def apply_action(
     if order is None or (user.role == Role.CUSTOMER and order.customer_id != user.id):
         raise NotFound("Pedido não encontrado.")
 
-    transition = resolve(action, order.status, user.role, is_owner=order.customer_id == user.id)
+    transition = resolve(
+        action, order.status, user.role, order.fulfillment, is_owner=order.customer_id == user.id
+    )
     if transition.requires_reason and not reason:
         raise InvalidInput(
             "Informe o motivo para o cliente.", fields={"reason": "Informe o motivo."}

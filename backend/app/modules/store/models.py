@@ -17,6 +17,8 @@ class StoreSettings(Base):
     pause_message: Mapped[str | None] = mapped_column(String(255))
     # Meta de preparo: base do tempo estimado e das cores do cronômetro da cozinha.
     prep_time_minutes: Mapped[int] = mapped_column(Integer, default=20)
+    # Onde o cliente retira os pedidos "para retirada".
+    pickup_address: Mapped[str | None] = mapped_column(String(255))
     updated_at: Mapped[UpdatedAt]
 
 

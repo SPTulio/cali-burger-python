@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { planReorder } from "@/features/cart/reorder";
-import { menuItem } from "@/test/factories";
+import { menuItem, order as makeOrder } from "@/test/factories";
 import type { Order, OrderItem } from "@/types/api";
 
 function line(overrides: Partial<OrderItem>): OrderItem {
@@ -18,21 +18,7 @@ function line(overrides: Partial<OrderItem>): OrderItem {
 }
 
 function order(items: OrderItem[]): Order {
-  return {
-    id: 7,
-    status: "completed",
-    customer_id: 1,
-    customer_name: "João",
-    delivery_address: null,
-    total: "0",
-    created_at: "2026-10-01T12:00:00Z",
-    updated_at: "2026-10-01T12:00:00Z",
-    items,
-    payment: null,
-    status_reason: null,
-    events: null,
-    available_actions: [],
-  };
+  return makeOrder({ id: 7, status: "completed", items });
 }
 
 describe("planReorder", () => {

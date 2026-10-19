@@ -72,6 +72,7 @@ def get_status(db: Session) -> StoreStatusOut:
         next_opening_at=upcoming.astimezone(UTC) if upcoming else None,
         hours=[HourOut.model_validate(h) for h in hours],
         prep_time_minutes=settings.prep_time_minutes,
+        pickup_address=settings.pickup_address,
     )
 
 
@@ -110,5 +111,6 @@ def set_pause(db: Session, data: PauseIn) -> StoreStatusOut:
 def update_settings(db: Session, data: StoreSettingsIn) -> StoreStatusOut:
     settings = get_settings_row(db, lock=True)
     settings.prep_time_minutes = data.prep_time_minutes
+    settings.pickup_address = data.pickup_address
     db.commit()
     return get_status(db)

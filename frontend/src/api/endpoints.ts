@@ -3,6 +3,7 @@ import { http } from "@/api/client";
 import type {
   Address,
   Category,
+  Fulfillment,
   IngredientAddResult,
   Ingredient,
   Inventory,
@@ -107,8 +108,11 @@ export const ordersApi = {
     http.get<Page<Order>>("/orders", { params: { ...filters } }),
   get: (id: number) => http.get<Order>(`/orders/${id}`),
   summary: () => http.get<{ counts: Partial<Record<OrderStatus, number>> }>("/orders/summary"),
-  create: (items: { menu_item_id: number; quantity: number; notes: string | null }[], key: string) =>
-    http.post<Order>("/orders", { json: { items }, headers: { "Idempotency-Key": key } }),
+  create: (
+    items: { menu_item_id: number; quantity: number; notes: string | null }[],
+    fulfillment: Fulfillment,
+    key: string,
+  ) => http.post<Order>("/orders", { json: { items, fulfillment }, headers: { "Idempotency-Key": key } }),
   act: (id: number, action: OrderAction, reason?: string | null) =>
     http.post<OrderActionResult>(`/orders/${id}/actions/${action}`, {
       json: reason ? { reason } : undefined,
@@ -132,6 +136,8 @@ export const storeApi = {
     http.put<StoreStatus>("/store/hours", { json: { hours } }),
   setPause: (paused: boolean, message: string | null) =>
     http.put<StoreStatus>("/store/pause", { json: { paused, message } }),
-  updateSettings: (prepTimeMinutes: number) =>
-    http.put<StoreStatus>("/store/settings", { json: { prep_time_minutes: prepTimeMinutes } }),
+  updateSettings: (prepTimeMinutes: number, pickupAddress: string | null) =>
+    http.put<StoreStatus>("/store/settings", {
+      json: { prep_time_minutes: prepTimeMinutes, pickup_address: pickupAddress },
+    }),
 };

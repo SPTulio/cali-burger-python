@@ -11,7 +11,7 @@ from app.modules.catalog.rules import availability, portions_available
 from app.modules.catalog.schemas import Availability, MenuItemIn
 from app.modules.inventory.schemas import StockLevel
 from app.modules.inventory.service import stock_level
-from app.modules.orders.models import OrderStatus
+from app.modules.orders.models import Fulfillment, OrderStatus
 from app.modules.orders.schemas import OrderCreateIn
 from app.modules.orders.service import money
 from app.modules.orders.state_machine import OrderAction, available_actions, resolve
@@ -73,35 +73,52 @@ def test_money_rounds_half_up_to_cents() -> None:
 # ---------------------------------------------------------------- máquina de estados
 
 AWAITING = OrderStatus.AWAITING_ACCEPTANCE
+DELIVERY = Fulfillment.DELIVERY
+PICKUP = Fulfillment.PICKUP
+
+
+def actions(status: OrderStatus, role: Role, kind: Fulfillment = DELIVERY, *, owner: bool = False):
+    return available_actions(status, role, kind, is_owner=owner)
 
 
 def test_actions_available_per_role_and_status() -> None:
-    assert available_actions(AWAITING, Role.MANAGER, is_owner=False) == [
-        OrderAction.ACCEPT,
-        OrderAction.REJECT,
-    ]
-    assert available_actions(AWAITING, Role.CUSTOMER, is_owner=True) == [OrderAction.CANCEL]
-    assert available_actions(AWAITING, Role.CUSTOMER, is_owner=False) == []
-    assert available_actions(AWAITING, Role.COOK, is_owner=False) == []
-    assert available_actions(OrderStatus.IN_PREPARATION, Role.COOK, is_owner=False) == [
-        OrderAction.DISPATCH
-    ]
-    assert available_actions(OrderStatus.IN_PREPARATION, Role.MANAGER, is_owner=False) == [
-        OrderAction.DISPATCH
-    ]
-    assert available_actions(OrderStatus.OUT_FOR_DELIVERY, Role.CUSTOMER, is_owner=True) == [
+    assert actions(AWAITING, Role.MANAGER) == [OrderAction.ACCEPT, OrderAction.REJECT]
+    assert actions(AWAITING, Role.CUSTOMER, owner=True) == [OrderAction.CANCEL]
+    assert actions(AWAITING, Role.CUSTOMER) == []
+    assert actions(AWAITING, Role.COOK) == []
+    # A cozinha (ou o balcão) marca como pronto.
+    assert actions(OrderStatus.IN_PREPARATION, Role.COOK) == [OrderAction.READY]
+    assert actions(OrderStatus.IN_PREPARATION, Role.MANAGER) == [OrderAction.READY]
+    assert actions(OrderStatus.OUT_FOR_DELIVERY, Role.CUSTOMER, owner=True) == [
         OrderAction.COMPLETE
     ]
     for final in (OrderStatus.COMPLETED, OrderStatus.CANCELLED, OrderStatus.REJECTED):
         for role in Role:
-            assert available_actions(final, role, is_owner=True) == []
+            for kind in Fulfillment:
+                assert actions(final, role, kind, owner=True) == []
+
+
+def test_ready_order_depends_on_the_fulfillment() -> None:
+    ready = OrderStatus.READY
+    assert actions(ready, Role.MANAGER, DELIVERY) == [OrderAction.DISPATCH]
+    assert actions(ready, Role.MANAGER, PICKUP) == [OrderAction.PICK_UP]
+    assert actions(ready, Role.COOK, DELIVERY) == []
+    assert actions(ready, Role.CUSTOMER, PICKUP, owner=True) == []
+    with pytest.raises(BusinessRuleError):
+        resolve(OrderAction.DISPATCH, ready, Role.MANAGER, PICKUP, is_owner=False)
+    with pytest.raises(BusinessRuleError):
+        resolve(OrderAction.PICK_UP, ready, Role.MANAGER, DELIVERY, is_owner=False)
+    assert resolve(OrderAction.PICK_UP, ready, Role.MANAGER, PICKUP, is_owner=False).to_status == (
+        OrderStatus.COMPLETED
+    )
 
 
 def test_transitions_that_return_stock() -> None:
-    reject = resolve(OrderAction.REJECT, AWAITING, Role.MANAGER, is_owner=False)
-    cancel = resolve(OrderAction.CANCEL, AWAITING, Role.CUSTOMER, is_owner=True)
-    accept = resolve(OrderAction.ACCEPT, AWAITING, Role.MANAGER, is_owner=False)
+    reject = resolve(OrderAction.REJECT, AWAITING, Role.MANAGER, DELIVERY, is_owner=False)
+    cancel = resolve(OrderAction.CANCEL, AWAITING, Role.CUSTOMER, DELIVERY, is_owner=True)
+    accept = resolve(OrderAction.ACCEPT, AWAITING, Role.MANAGER, DELIVERY, is_owner=False)
     assert reject.restock
+    assert reject.requires_reason
     assert reject.to_status == OrderStatus.REJECTED
     assert cancel.restock
     assert cancel.to_status == OrderStatus.CANCELLED
@@ -110,11 +127,15 @@ def test_transitions_that_return_stock() -> None:
 
 def test_wrong_role_is_forbidden_and_wrong_status_is_a_conflict() -> None:
     with pytest.raises(Forbidden):
-        resolve(OrderAction.ACCEPT, AWAITING, Role.COOK, is_owner=False)
+        resolve(OrderAction.ACCEPT, AWAITING, Role.COOK, DELIVERY, is_owner=False)
     with pytest.raises(Forbidden):
-        resolve(OrderAction.CANCEL, AWAITING, Role.CUSTOMER, is_owner=False)
+        resolve(OrderAction.CANCEL, AWAITING, Role.CUSTOMER, DELIVERY, is_owner=False)
+    with pytest.raises(Forbidden):
+        resolve(OrderAction.DISPATCH, OrderStatus.READY, Role.COOK, DELIVERY, is_owner=False)
     with pytest.raises(BusinessRuleError):
-        resolve(OrderAction.CANCEL, OrderStatus.IN_PREPARATION, Role.CUSTOMER, is_owner=True)
+        resolve(
+            OrderAction.CANCEL, OrderStatus.IN_PREPARATION, Role.CUSTOMER, DELIVERY, is_owner=True
+        )
 
 
 # ---------------------------------------------------------------- validação de entrada

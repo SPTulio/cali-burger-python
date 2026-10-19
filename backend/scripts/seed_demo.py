@@ -26,7 +26,7 @@ from app.db.session import get_engine, get_sessionmaker
 from app.modules.catalog.models import Category, MenuItem, RecipeItem
 from app.modules.inventory.models import Ingredient
 from app.modules.orders import service as orders
-from app.modules.orders.models import Order
+from app.modules.orders.models import Fulfillment, Order
 from app.modules.orders.schemas import OrderCreateIn
 from app.modules.orders.state_machine import OrderAction
 from app.modules.users.models import CustomerAddress, Role, Sex, User
@@ -61,7 +61,7 @@ MENU = [
      "Lanches", "x_burger.webp",
      {"Pão Brioche": 1, "Hambúrguer 180 g": 1, "Queijo Cheddar": 1, "Molho especial": 1}),
     ("Cali Bacon", "Hambúrguer 180 g, cheddar, bacon crocante e molho especial", "31.00",
-     "Lanches", None,
+     "Lanches", "cali_bacon.webp",  # usada se o arquivo existir em demo_assets/menu
      {"Pão Brioche": 1, "Hambúrguer 180 g": 1, "Queijo Cheddar": 1, "Bacon": 2,
       "Molho especial": 1}),
     ("Cali Fritas", "Porção de batata frita (180 g)", "15.00",
@@ -142,7 +142,8 @@ def _wipe() -> None:
         conn.execute(
             text(
                 "UPDATE store_settings SET is_paused = 0, pause_message = NULL, "
-                "prep_time_minutes = 20"
+                "prep_time_minutes = 20, "
+                "pickup_address = 'Av. Sete de Setembro, 2775 - Rebouças, Curitiba (balcão)'"
             )
         )
     media = get_settings().menu_media_dir
@@ -219,6 +220,7 @@ def _people(db: Session) -> tuple[list[User], User, list[User]]:
 
 # Status final dos pedidos antigos (a maioria concluída).
 HISTORY_OUTCOMES = ["completed"] * 8 + ["cancelled", "rejected"]
+REJECT_REASONS = ["Item em falta", "Endereço fora da área de entrega", "Loja fechando"]
 NOTES = [None, None, None, "Sem cebola", "Carne bem passada", "Sem tomate", "Molho à parte"]
 
 
@@ -239,6 +241,7 @@ def _orders(
     plan += [
         (timedelta(minutes=95), "completed"),
         (timedelta(minutes=50), "out_for_delivery"),
+        (timedelta(minutes=40), "ready"),
         (timedelta(minutes=28), "in_preparation"),
         (timedelta(minutes=17), "in_preparation"),
         (timedelta(minutes=6), "awaiting_acceptance"),
@@ -247,10 +250,13 @@ def _orders(
 
     for ago, outcome in plan:
         customer = random.choice(customers)
+        # Cerca de 1 em cada 4 pedidos é para retirada no balcão.
+        pickup = outcome != "out_for_delivery" and random.random() < 0.25
         chosen = random.sample(burgers, k=random.randint(1, 2)) + random.sample(
             sides_and_drinks, k=random.randint(0, 2)
         )
         cart = OrderCreateIn(
+            fulfillment=Fulfillment.PICKUP if pickup else Fulfillment.DELIVERY,
             items=[
                 {
                     "menu_item_id": i.id,
@@ -258,26 +264,28 @@ def _orders(
                     "notes": random.choice(NOTES),
                 }
                 for i in chosen
-            ]
+            ],
         )
         order, _ = orders.create_order(db, customer, cart, None)
+        cook = random.choice(cooks)
+        prepared = [(OrderAction.ACCEPT, manager), (OrderAction.READY, cook)]
+        finish = (
+            [(OrderAction.PICK_UP, manager)]
+            if pickup
+            else [(OrderAction.DISPATCH, manager), (OrderAction.COMPLETE, customer)]
+        )
         steps = {
             "awaiting_acceptance": [],
-            "in_preparation": [(OrderAction.ACCEPT, manager)],
-            "out_for_delivery": [
-                (OrderAction.ACCEPT, manager),
-                (OrderAction.DISPATCH, random.choice(cooks)),
-            ],
-            "completed": [
-                (OrderAction.ACCEPT, manager),
-                (OrderAction.DISPATCH, random.choice(cooks)),
-                (OrderAction.COMPLETE, customer),
-            ],
+            "in_preparation": prepared[:1],
+            "ready": prepared,
+            "out_for_delivery": [*prepared, (OrderAction.DISPATCH, manager)],
+            "completed": [*prepared, *finish],
             "cancelled": [(OrderAction.CANCEL, customer)],
             "rejected": [(OrderAction.REJECT, manager)],
         }[outcome]
         for action, actor in steps:
-            orders.apply_action(db, order.id, action, actor)
+            reason = random.choice(REJECT_REASONS) if action == OrderAction.REJECT else None
+            orders.apply_action(db, order.id, action, actor, reason)
         _backdate(db, order.id, now - ago)
     return len(plan)
 

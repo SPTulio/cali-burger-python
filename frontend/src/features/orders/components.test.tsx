@@ -5,27 +5,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ordersApi } from "@/api/endpoints";
 import { OrderActions } from "@/features/orders/components";
+import { order as makeOrder } from "@/test/factories";
 import type { Order } from "@/types/api";
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 function order(overrides: Partial<Order> = {}): Order {
-  return {
-    id: 42,
-    status: "awaiting_acceptance",
-    customer_id: 1,
-    customer_name: "João Silva",
-    delivery_address: "Rua A, 1",
-    total: "22.00",
-    created_at: "2026-10-19T15:00:00Z",
-    updated_at: "2026-10-19T15:00:00Z",
-    items: [],
-    payment: null,
-    status_reason: null,
-    events: null,
-    available_actions: ["accept", "reject"],
-    ...overrides,
-  };
+  return makeOrder({ available_actions: ["accept", "reject"], ...overrides });
 }
 
 function renderActions(value: Order) {

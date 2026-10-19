@@ -7,12 +7,21 @@ export type Sex = "male" | "female" | "other";
 export type OrderStatus =
   | "awaiting_acceptance"
   | "in_preparation"
+  | "ready"
   | "out_for_delivery"
   | "completed"
   | "cancelled"
   | "rejected";
 
-export type OrderAction = "accept" | "reject" | "dispatch" | "cancel" | "complete";
+export type OrderAction =
+  | "accept"
+  | "reject"
+  | "ready"
+  | "dispatch"
+  | "pick_up"
+  | "cancel"
+  | "complete";
+export type Fulfillment = "delivery" | "pickup";
 export type Availability = "available" | "low" | "sold_out" | "paused";
 export type StockLevel = "ok" | "low" | "out";
 export type Money = string;
@@ -118,6 +127,9 @@ export interface OrderEvent {
 export interface Order {
   id: number;
   status: OrderStatus;
+  fulfillment: Fulfillment;
+  /** Quando o pedido entrou no status atual (base do cronômetro da cozinha). */
+  status_since: string;
   customer_id: number | null;
   customer_name: string;
   delivery_address: string | null;
@@ -202,4 +214,6 @@ export interface StoreStatus {
   next_opening_at: string | null;
   hours: OpeningHour[];
   prep_time_minutes: number;
+  /** Retirada no balcão disponível quando preenchido. */
+  pickup_address: string | null;
 }

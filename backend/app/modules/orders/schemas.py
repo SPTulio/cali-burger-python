@@ -6,7 +6,7 @@ from typing import Annotated
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.core.validators import OptionalNote, UtcDateTime
-from app.modules.orders.models import OrderStatus, PaymentMethod
+from app.modules.orders.models import Fulfillment, OrderStatus, PaymentMethod
 from app.modules.orders.state_machine import OrderAction
 
 # Limite por item no carrinho (sistema original: MAX_QUANTIDADE_ITEM = 20).
@@ -21,6 +21,9 @@ class OrderItemIn(BaseModel):
 
 class OrderCreateIn(BaseModel):
     items: list[OrderItemIn] = Field(min_length=1, max_length=50)
+    fulfillment: Fulfillment = Field(
+        default=Fulfillment.DELIVERY, description="Entrega no endereço ou retirada no balcão"
+    )
 
     @field_validator("items")
     @classmethod
@@ -64,6 +67,8 @@ class OrderEventOut(BaseModel):
 class OrderOut(BaseModel):
     id: int
     status: OrderStatus
+    fulfillment: Fulfillment
+    status_since: UtcDateTime = Field(description="Quando o pedido entrou no status atual")
     customer_id: int | None
     customer_name: str
     delivery_address: str | None

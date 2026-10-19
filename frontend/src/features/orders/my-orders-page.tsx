@@ -7,7 +7,7 @@ import { queryKeys } from "@/api/keys";
 import { EmptyState, ErrorState, PageHeader, Pagination, StatusBadge } from "@/components/common";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/field";
-import { Card, Skeleton } from "@/components/ui/primitives";
+import { Badge, Card, Skeleton } from "@/components/ui/primitives";
 import { OrderActions } from "@/features/orders/components";
 import { ReorderButton } from "@/features/orders/reorder-button";
 import { formatCurrency, formatDateTime, todayIso } from "@/lib/format";
@@ -107,6 +107,7 @@ export function MyOrdersPage() {
                       Pedido nº {order.id}
                     </Link>
                     <StatusBadge status={order.status} />
+                    {order.fulfillment === "pickup" && <Badge tone="violet">Retirada</Badge>}
                   </div>
                   <p className="mt-1 truncate text-sm text-muted-foreground">
                     {order.items.map((i) => `${i.quantity}× ${i.product_name}`).join(" · ")}

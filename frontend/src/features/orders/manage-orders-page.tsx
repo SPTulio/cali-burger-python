@@ -9,7 +9,7 @@ import { EmptyState, ErrorState, PageHeader, Pagination, StatusBadge, TableSkele
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/field";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/menu";
-import { Card, Table, TD, TH, THead, TR } from "@/components/ui/primitives";
+import { Badge, Card, Table, TD, TH, THead, TR } from "@/components/ui/primitives";
 import { OrderActions, OrderItemsList } from "@/features/orders/components";
 import { useDebounced, useNow } from "@/hooks/use-debounced";
 import { formatCurrency, formatDateTime, formatRelative, todayIso } from "@/lib/format";
@@ -21,9 +21,11 @@ const PAGE_SIZE = 20;
 
 export function ManageOrdersPage() {
   const [params, setParams] = useSearchParams();
-  const view = params.get("visao") === "todos" ? "todos" : "aguardando";
+  const visao = params.get("visao");
+  const view = visao === "todos" || visao === "prontos" ? visao : "aguardando";
   const summary = useQuery({ queryKey: queryKeys.ordersSummary, queryFn: ordersApi.summary, refetchInterval: 20_000 });
   const pending = summary.data?.counts.awaiting_acceptance;
+  const ready = summary.data?.counts.ready;
 
   return (
     <div>
@@ -38,7 +40,7 @@ export function ManageOrdersPage() {
           </Button>
         }
       />
-      <Tabs value={view} onValueChange={(v) => setParams(v === "todos" ? { visao: "todos" } : {}, { replace: true })}>
+      <Tabs value={view} onValueChange={(v) => setParams(v === "aguardando" ? {} : { visao: v }, { replace: true })}>
         <TabsList className="mb-4">
           <TabsTrigger value="aguardando">
             Aguardando aceitação
@@ -48,16 +50,46 @@ export function ManageOrdersPage() {
               </span>
             ) : null}
           </TabsTrigger>
+          <TabsTrigger value="prontos">
+            Prontos
+            {ready ? (
+              <span className="tabular rounded-full bg-primary px-1.5 text-[11px] font-semibold text-primary-foreground">
+                {ready}
+              </span>
+            ) : null}
+          </TabsTrigger>
           <TabsTrigger value="todos">Todos os pedidos</TabsTrigger>
         </TabsList>
       </Tabs>
-      {view === "aguardando" ? <AwaitingQueue /> : <AllOrders />}
+      {view === "aguardando" && (
+        <Queue
+          status="awaiting_acceptance"
+          emptyTitle="Nenhum pedido aguardando"
+          emptyDescription="Novos pedidos aparecem aqui automaticamente, do mais antigo para o mais novo."
+        />
+      )}
+      {view === "prontos" && (
+        <Queue
+          status="ready"
+          emptyTitle="Nenhum pedido pronto"
+          emptyDescription="Quando a cozinha marcar um pedido como pronto, ele aparece aqui para sair para entrega ou ser entregue no balcão."
+        />
+      )}
+      {view === "todos" && <AllOrders />}
     </div>
   );
 }
 
-function AwaitingQueue() {
-  const filters: OrderFilters = { status: ["awaiting_acceptance"], sort: "oldest", page_size: 100 };
+function Queue({
+  status,
+  emptyTitle,
+  emptyDescription,
+}: {
+  status: OrderStatus;
+  emptyTitle: string;
+  emptyDescription: string;
+}) {
+  const filters: OrderFilters = { status: [status], sort: "oldest", page_size: 100 };
   const orders = useQuery({
     queryKey: queryKeys.orders(filters),
     queryFn: () => ordersApi.list(filters),
@@ -70,11 +102,7 @@ function AwaitingQueue() {
   if (orders.data.items.length === 0) {
     return (
       <Card>
-        <EmptyState
-          icon={Inbox}
-          title="Nenhum pedido aguardando"
-          description="Novos pedidos aparecem aqui automaticamente, do mais antigo para o mais novo."
-        />
+        <EmptyState icon={Inbox} title={emptyTitle} description={emptyDescription} />
       </Card>
     );
   }
@@ -225,6 +253,11 @@ function OrdersTable({ orders, now, showRelative }: { orders: Order[]; now?: num
             </TD>
             <TD className="whitespace-nowrap">
               {order.customer_name}
+              {order.fulfillment === "pickup" && (
+                <Badge tone="violet" className="ml-2">
+                  Retirada
+                </Badge>
+              )}
               {!showRelative && (
                 <span className="tabular block text-xs text-muted-foreground xl:hidden">
                   {formatDateTime(order.created_at)}
@@ -250,7 +283,12 @@ function OrdersTable({ orders, now, showRelative }: { orders: Order[]; now?: num
               )}
             >
               {formatDateTime(order.created_at)}
-              {showRelative && <span className="block text-xs">{formatRelative(order.created_at, now)}</span>}
+              {showRelative && (
+                <span className="block text-xs">
+                  {order.status === "ready" ? "pronto " : ""}
+                  {formatRelative(order.status_since, now)}
+                </span>
+              )}
             </TD>
             <TD className="text-right">
               <OrderActions order={order} className="flex-nowrap justify-end" />

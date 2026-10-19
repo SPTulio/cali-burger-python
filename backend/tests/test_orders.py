@@ -1,12 +1,12 @@
 from datetime import timedelta
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import select, text
 
 from app.core.time import utcnow
 from app.modules.orders.models import Order, OrderConsumption, Payment
-from app.modules.users.models import Role
-from tests.helpers import make_customer, make_staff, stock
+from app.modules.users.models import Role, User
+from tests.helpers import fresh, make_customer, make_staff, stock
 
 
 @pytest.fixture
@@ -26,13 +26,14 @@ def people(make_api, db):
     return People
 
 
-def order(client, *lines, key=None):
+def order(client, *lines, key=None, fulfillment=None):
     headers = {"Idempotency-Key": key} if key else {}
     items = [
         {"menu_item_id": item.id, "quantity": qty, **({"notes": notes} if notes else {})}
         for item, qty, notes in ((*line, None)[:3] for line in lines)
     ]
-    return client.post("/api/v1/orders", json={"items": items}, headers=headers)
+    body = {"items": items, **({"fulfillment": fulfillment} if fulfillment else {})}
+    return client.post("/api/v1/orders", json=body, headers=headers)
 
 
 def act(client, order_id, action, reason=None):
@@ -57,6 +58,7 @@ def test_complete_order_flow_with_exact_stock(people, db, menu):
     assert created["payment"]["method"] == "pix"
     assert created["payment"]["amount"] == "87.00"
     assert created["available_actions"] == ["cancel"]
+    assert created["fulfillment"] == "delivery"
     assert [i["notes"] for i in created["items"]] == ["sem tomate", None, None]
     assert created["created_at"].endswith("Z")
 
@@ -70,7 +72,8 @@ def test_complete_order_flow_with_exact_stock(people, db, menu):
     assert act(people.balcao, order_id, "accept").json()["message"] == (
         f"Pedido nº {order_id} aceito e enviado para a cozinha."
     )
-    assert act(people.cozinha, order_id, "dispatch").status_code == 200
+    assert act(people.cozinha, order_id, "ready").status_code == 200
+    assert act(people.balcao, order_id, "dispatch").status_code == 200
     done = act(people.joao, order_id, "complete")
     assert done.status_code == 200
     assert done.json()["order"]["status"] == "completed"
@@ -79,7 +82,8 @@ def test_complete_order_flow_with_exact_stock(people, db, menu):
     assert [(e["to_status"], e["actor_name"]) for e in events] == [
         ("awaiting_acceptance", "João Silva"),
         ("in_preparation", "Ana Ribeiro"),
-        ("out_for_delivery", "Carlos Souza"),
+        ("ready", "Carlos Souza"),
+        ("out_for_delivery", "Ana Ribeiro"),
         ("completed", "João Silva"),
     ]
     assert stock(db) == after  # concluir não mexe no estoque
@@ -145,7 +149,8 @@ def test_transitions_are_enforced(people, menu):
 
     assert act(people.cozinha, order_id, "accept").status_code == 403
     assert act(people.joao, order_id, "accept").status_code == 403
-    assert act(people.cozinha, order_id, "dispatch").status_code == 409  # ainda não aceito
+    assert act(people.cozinha, order_id, "ready").status_code == 409  # ainda não aceito
+    assert act(people.cozinha, order_id, "dispatch").status_code == 403  # entrega é do balcão
     assert act(people.balcao, order_id, "accept").status_code == 200
 
     late_cancel = act(people.joao, order_id, "cancel")
@@ -178,7 +183,7 @@ def test_kitchen_sees_only_the_preparation_queue_oldest_first(people, menu):
         "/api/v1/orders", params={"status": ["completed", "awaiting_acceptance"], "sort": "oldest"}
     ).json()
     assert [o["id"] for o in queue["items"]] == ids[:2]
-    assert all(o["available_actions"] == ["dispatch"] for o in queue["items"])
+    assert all(o["available_actions"] == ["ready"] for o in queue["items"])
     assert people.cozinha.get(f"/api/v1/orders/{ids[2]}").status_code == 404
     assert people.cozinha.get("/api/v1/orders/summary").json()["counts"] == {"in_preparation": 2}
 
@@ -273,3 +278,48 @@ def test_customer_cancel_reason_is_optional(people, menu):
     accepted = act(people.balcao, third, "accept", reason="ignorado").json()["order"]
     assert accepted["status_reason"] is None
     assert accepted["events"][-1]["note"] is None
+
+
+def test_pickup_order_flow(people, db, menu):
+    db.execute(text("UPDATE store_settings SET pickup_address = 'Rua do Balcão, 10'"))
+    fresh(db)
+
+    created = order(people.joao, (menu.classic, 1), fulfillment="pickup").json()
+    assert created["fulfillment"] == "pickup"
+    assert created["delivery_address"] is None
+    order_id = created["id"]
+
+    act(people.balcao, order_id, "accept")
+    ready = act(people.cozinha, order_id, "ready").json()["order"]
+    assert ready["status"] == "ready"
+    # Retirada: não sai para entrega e quem confirma é o balcão.
+    assert ready["available_actions"] == []
+    seen_by_manager = people.balcao.get(f"/api/v1/orders/{order_id}").json()
+    assert seen_by_manager["available_actions"] == ["pick_up"]
+    assert act(people.balcao, order_id, "dispatch").status_code == 409
+    assert act(people.joao, order_id, "complete").status_code == 409
+
+    done = act(people.balcao, order_id, "pick_up").json()
+    assert done["order"]["status"] == "completed"
+    assert done["message"] == f"Pedido nº {order_id} retirado pelo cliente."
+
+
+def test_pickup_needs_a_store_pickup_address(people, menu):
+    response = order(people.joao, (menu.classic, 1), fulfillment="pickup")
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "pickup_unavailable"
+
+
+def test_pickup_does_not_need_a_customer_address(people, db, menu):
+    db.execute(text("UPDATE store_settings SET pickup_address = 'Rua do Balcão, 10'"))
+    joao = db.scalar(select(User).where(User.username == "joao"))
+    db.delete(joao.address)
+    fresh(db)
+    assert order(people.joao, (menu.water, 1), fulfillment="pickup").status_code == 201
+    assert order(people.joao, (menu.water, 1)).status_code == 409  # entrega exige endereço
+
+
+def test_status_since_is_the_time_of_the_last_change(people, menu):
+    order_id = order(people.joao, (menu.water, 1)).json()["id"]
+    accepted = act(people.balcao, order_id, "accept").json()["order"]
+    assert accepted["status_since"] == accepted["events"][-1]["created_at"]

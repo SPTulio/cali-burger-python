@@ -39,6 +39,9 @@ class PauseIn(BaseModel):
 
 class StoreSettingsIn(BaseModel):
     prep_time_minutes: int = Field(ge=1, le=240)
+    pickup_address: OptionalNote = Field(
+        default=None, description="Endereço para retirada no balcão (vazio = retirada desativada)"
+    )
 
 
 class StoreStatusOut(BaseModel):
@@ -50,3 +53,4 @@ class StoreStatusOut(BaseModel):
     next_opening_at: UtcDateTime | None
     hours: list[HourOut]
     prep_time_minutes: int
+    pickup_address: str | None = Field(description="Retirada no balcão disponível se preenchido")

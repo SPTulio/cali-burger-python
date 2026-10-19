@@ -20,6 +20,7 @@ from app.modules.inventory.models import Ingredient
 class OrderStatus(StrEnum):
     AWAITING_ACCEPTANCE = "awaiting_acceptance"
     IN_PREPARATION = "in_preparation"
+    READY = "ready"  # pronto: aguardando entregador ou retirada no balcão
     OUT_FOR_DELIVERY = "out_for_delivery"
     COMPLETED = "completed"
     CANCELLED = "cancelled"  # pelo cliente
@@ -28,6 +29,22 @@ class OrderStatus(StrEnum):
 
 # Pedidos que não contam como venda (relatório) e cujo estoque foi devolvido.
 VOIDED_STATUSES = frozenset({OrderStatus.CANCELLED, OrderStatus.REJECTED})
+
+
+# Pedidos em andamento (contam na fila e no tempo estimado).
+ACTIVE_STATUSES = frozenset(
+    {
+        OrderStatus.AWAITING_ACCEPTANCE,
+        OrderStatus.IN_PREPARATION,
+        OrderStatus.READY,
+        OrderStatus.OUT_FOR_DELIVERY,
+    }
+)
+
+
+class Fulfillment(StrEnum):
+    DELIVERY = "delivery"
+    PICKUP = "pickup"  # retirada no balcão
 
 
 class PaymentMethod(StrEnum):
@@ -49,6 +66,11 @@ class Order(Base):
     customer_name: Mapped[str] = mapped_column(String(100))
     delivery_address: Mapped[str | None] = mapped_column(String(1100))
     status: Mapped[OrderStatus] = mapped_column(str_enum(OrderStatus, "order_status"))
+    fulfillment: Mapped[Fulfillment] = mapped_column(
+        str_enum(Fulfillment, "order_fulfillment"),
+        default=Fulfillment.DELIVERY,
+        server_default=Fulfillment.DELIVERY.value,
+    )
     total: Mapped[Money]
     idempotency_key: Mapped[str | None] = mapped_column(String(64))
     created_at: Mapped[CreatedAt]

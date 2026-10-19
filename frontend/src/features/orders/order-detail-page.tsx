@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, CircleCheck, MapPin } from "lucide-react";
+import { ArrowLeft, CircleCheck, MapPin, Store } from "lucide-react";
 import { Link, useParams, useSearchParams } from "react-router";
 
 import { orderingActive } from "@/features/orders/utils";
@@ -11,13 +11,15 @@ import { Card, CardHeader, Skeleton, Table, TD, TH, THead, TR } from "@/componen
 import { useSession } from "@/features/auth/session";
 import { OrderActions, OrderProgress } from "@/features/orders/components";
 import { ReorderButton } from "@/features/orders/reorder-button";
+import { useStoreStatus } from "@/features/store/use-store-status";
 import { formatCurrency, formatDateTime } from "@/lib/format";
-import { ORDER_STATUS } from "@/lib/labels";
+import { FULFILLMENT_LABEL, ORDER_STATUS } from "@/lib/labels";
 
 export function OrderDetailPage({ backTo = "/pedidos" }: { backTo?: string }) {
   const id = Number(useParams().id);
   const [params] = useSearchParams();
   const session = useSession();
+  const store = useStoreStatus();
   const isNew = params.get("novo") === "1";
 
   const order = useQuery({
@@ -61,7 +63,12 @@ export function OrderDetailPage({ backTo = "/pedidos" }: { backTo?: string }) {
             <StatusBadge status={data.status} />
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            {formatDateTime(data.created_at)} · {ORDER_STATUS[data.status].customerHint}
+            {formatDateTime(data.created_at)} ·{" "}
+            {data.status === "ready"
+              ? data.fulfillment === "pickup"
+                ? "Pronto! Pode retirar no balcão."
+                : "Pronto! Aguardando o entregador."
+              : ORDER_STATUS[data.status].customerHint}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -113,10 +120,19 @@ export function OrderDetailPage({ backTo = "/pedidos" }: { backTo?: string }) {
 
       <div className="grid gap-6 sm:grid-cols-2">
         <Card className="p-5">
-          <h2 className="mb-2 text-sm font-semibold">Entrega</h2>
+          <h2 className="mb-2 text-sm font-semibold">{FULFILLMENT_LABEL[data.fulfillment]}</h2>
           <p className="flex gap-2 text-sm text-muted-foreground">
-            <MapPin className="mt-0.5 size-4 shrink-0" aria-hidden />
-            {data.delivery_address ?? "Endereço não registrado neste pedido."}
+            {data.fulfillment === "pickup" ? (
+              <>
+                <Store className="mt-0.5 size-4 shrink-0" aria-hidden />
+                {store.data?.pickup_address ?? "Retire no balcão da loja."}
+              </>
+            ) : (
+              <>
+                <MapPin className="mt-0.5 size-4 shrink-0" aria-hidden />
+                {data.delivery_address ?? "Endereço não registrado neste pedido."}
+              </>
+            )}
           </p>
         </Card>
         <Card className="p-5">
