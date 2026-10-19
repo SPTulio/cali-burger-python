@@ -152,7 +152,10 @@ export function StorefrontLayout() {
         <Outlet context={{ openCart: () => setCartOpen(true) }} />
       </main>
       <footer className="border-t py-6 text-center text-xs text-muted-foreground">
-        Cali Burger · projeto de portfólio · pagamentos PIX simulados, nenhum valor é cobrado
+        Cali Burger · projeto de portfólio · pagamentos PIX simulados, nenhum valor é cobrado ·{" "}
+        <Link to="/privacidade" className="underline-offset-4 hover:text-foreground hover:underline">
+          Política de Privacidade
+        </Link>
       </footer>
       <CartSheet open={cartOpen} onOpenChange={setCartOpen} />
     </div>
@@ -309,6 +312,11 @@ export function AuthLayout({ children }: { children: ReactNode }) {
         <main id="conteudo" className="flex flex-1 items-center justify-center px-4 pb-10 sm:px-6">
           {children}
         </main>
+        <footer className="pb-6 text-center text-xs text-muted-foreground">
+          <Link to="/privacidade" className="underline-offset-4 hover:text-foreground hover:underline">
+            Política de Privacidade
+          </Link>
+        </footer>
       </div>
     </div>
   );

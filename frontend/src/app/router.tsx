@@ -7,6 +7,7 @@ import { NotFound, RouteError } from "@/app/route-pages";
 import { LoginPage } from "@/features/auth/login-page";
 import { RegisterPage } from "@/features/auth/register-page";
 import { CheckoutPage } from "@/features/checkout/checkout-page";
+import { PrivacyPage } from "@/features/legal/privacy-page";
 import { MenuPage } from "@/features/menu/menu-page";
 import { MyOrdersPage } from "@/features/orders/my-orders-page";
 import { OrderDetailPage } from "@/features/orders/order-detail-page";
@@ -42,6 +43,7 @@ export const router = createBrowserRouter([
         element: <StorefrontLayout />,
         children: [
           { index: true, element: <MenuPage /> },
+          { path: "privacidade", element: <PrivacyPage /> },
           {
             element: (
               <RequireRole roles={["customer"]}>

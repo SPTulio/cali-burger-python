@@ -31,6 +31,18 @@ class RegisterIn(BaseModel):
     cpf: Cpf
     birth_date: BirthDate
     address: AddressIn
+    accept_privacy: bool = Field(
+        default=False,
+        validate_default=True,
+        description="Aceite da Política de Privacidade (obrigatório)",
+    )
+
+    @field_validator("accept_privacy")
+    @classmethod
+    def must_accept(cls, value: bool) -> bool:
+        if not value:
+            raise ValueError("Para criar a conta, aceite a Política de Privacidade.")
+        return value
 
     _check_confirmation = field_validator("password_confirmation")(confirmation_matches("password"))
 

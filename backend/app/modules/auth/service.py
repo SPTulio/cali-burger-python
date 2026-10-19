@@ -24,6 +24,8 @@ from app.modules.auth.schemas import RegisterIn
 from app.modules.users.models import STAFF_ROLES, CustomerAddress, Role, User
 
 INVALID_CREDENTIALS = "Usuário/CPF ou senha inválidos."
+# Versão vigente da Política de Privacidade (a mesma exibida em /privacidade no frontend).
+PRIVACY_POLICY_VERSION = "2026-10-19"
 TOO_MANY_ATTEMPTS = "Muitas tentativas de login. Aguarde alguns minutos e tente novamente."
 
 
@@ -166,6 +168,8 @@ def register_customer(db: Session, data: RegisterIn) -> User:
         cpf=data.cpf,
         birth_date=data.birth_date,
         password_hash=hash_password(data.password),
+        privacy_version=PRIVACY_POLICY_VERSION,
+        privacy_accepted_at=utcnow(),
         address=CustomerAddress(**data.address.model_dump()),
     )
     db.add(user)

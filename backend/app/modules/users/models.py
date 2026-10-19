@@ -48,6 +48,9 @@ class User(Base):
     sex: Mapped[Sex | None] = mapped_column(str_enum(Sex, "user_sex"))
     password_hash: Mapped[str] = mapped_column(String(255))
     password_changed_at: Mapped[datetime | None]
+    # Aceite da Política de Privacidade (versão e momento), registrado no cadastro.
+    privacy_version: Mapped[str | None] = mapped_column(String(20))
+    privacy_accepted_at: Mapped[datetime | None]
     created_at: Mapped[CreatedAt]
     updated_at: Mapped[UpdatedAt]
 

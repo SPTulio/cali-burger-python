@@ -2,7 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -16,7 +16,7 @@ import { Field, Input, Select } from "@/components/ui/field";
 import { Card, CardHeader, Skeleton } from "@/components/ui/primitives";
 import { useSetSession } from "@/features/auth/session";
 import { useCart } from "@/features/cart/store";
-import { formatCpf, todayIso } from "@/lib/format";
+import { formatCpf, formatDateTime, todayIso } from "@/lib/format";
 import { ROLE_LABEL, SEX_LABEL } from "@/lib/labels";
 import { addressSchema, applyApiErrors, fields, withCpfMask } from "@/lib/validation";
 import type { Address, Profile, Sex } from "@/types/api";
@@ -31,6 +31,16 @@ export function ProfilePage() {
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6">
       <PageHeader title="Meu perfil" description={`${ROLE_LABEL[data.role]} · ${data.name}`} />
+      {data.role === "customer" && (
+        <p className="-mt-4 text-sm text-muted-foreground">
+          {data.privacy_accepted_at
+            ? `Você aceitou a Política de Privacidade em ${formatDateTime(data.privacy_accepted_at)}. `
+            : ""}
+          <Link to="/privacidade" className="font-medium text-primary hover:underline">
+            Ver a Política de Privacidade
+          </Link>
+        </p>
+      )}
       <PersonalDataCard profile={data} />
       {data.role === "customer" && <AddressCard address={data.address} />}
       <PasswordCard />

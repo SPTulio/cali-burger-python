@@ -14,6 +14,7 @@ REGISTER = {
     "cpf": "529.982.247-25",
     "birth_date": "1995-05-05",
     "address": {"state": "PR", "city": "Curitiba", "district": "Batel", "street": "Av. Batel, 1"},
+    "accept_privacy": True,
 }
 
 
@@ -160,3 +161,21 @@ def test_staff_cpf_can_also_have_a_customer_account(make_api, db):
         make_api().login("cozinheiro.cliente").get("/api/v1/auth/me").json()["user"]["role"]
         == "customer"
     )
+
+
+def test_register_requires_privacy_acceptance_and_records_it(api, db):
+    refused = api.post("/api/v1/auth/register", json={**REGISTER, "accept_privacy": False})
+    assert refused.status_code == 422
+    assert refused.json()["error"]["fields"]["accept_privacy"] == (
+        "Para criar a conta, aceite a Política de Privacidade."
+    )
+    missing = {k: v for k, v in REGISTER.items() if k != "accept_privacy"}
+    assert (
+        "accept_privacy"
+        in api.post("/api/v1/auth/register", json=missing).json()["error"]["fields"]
+    )
+
+    assert api.post("/api/v1/auth/register", json=REGISTER).status_code == 201
+    profile = api.get("/api/v1/me/profile").json()
+    assert profile["privacy_version"] == "2026-10-19"
+    assert profile["privacy_accepted_at"].endswith("Z")

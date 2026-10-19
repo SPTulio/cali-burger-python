@@ -36,6 +36,7 @@ export interface RegisterInput {
   cpf: string;
   birth_date: string;
   address: Address;
+  accept_privacy: boolean;
 }
 
 export interface ProfileInput {

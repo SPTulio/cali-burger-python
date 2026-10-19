@@ -2,7 +2,7 @@ from datetime import date
 
 from pydantic import BaseModel, ConfigDict
 
-from app.core.validators import AddressLine
+from app.core.validators import AddressLine, UtcDateTime
 from app.modules.users.models import Role, Sex
 
 
@@ -40,3 +40,5 @@ class ProfileOut(UserOut):
     birth_date: date
     sex: Sex | None
     address: AddressOut | None
+    privacy_version: str | None
+    privacy_accepted_at: UtcDateTime | None

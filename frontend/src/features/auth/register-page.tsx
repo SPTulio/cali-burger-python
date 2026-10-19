@@ -25,6 +25,7 @@ const schema = z
     cpf: fields.cpf,
     birth_date: fields.birthDate,
     address: addressSchema,
+    accept_privacy: z.boolean().refine((v) => v, "Para criar a conta, aceite a Política de Privacidade."),
   })
   .refine((d) => d.password === d.password_confirmation, {
     path: ["password_confirmation"],
@@ -54,6 +55,7 @@ export function RegisterPage() {
       cpf: "",
       birth_date: "",
       address: { street: "", district: "", city: "", state: "" },
+      accept_privacy: false,
     },
   });
   const { errors } = form.formState;
@@ -138,6 +140,30 @@ export function RegisterPage() {
               <Input autoComplete="address-level1" placeholder="PR" {...form.register("address.state")} />
             </Field>
           </Section>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="flex items-start gap-2.5 text-sm">
+              <input
+                type="checkbox"
+                className="mt-0.5 size-4 shrink-0 accent-[var(--primary)]"
+                aria-invalid={errors.accept_privacy ? true : undefined}
+                aria-describedby={errors.accept_privacy ? "accept-privacy-error" : undefined}
+                {...form.register("accept_privacy")}
+              />
+              <span>
+                Li e aceito a{" "}
+                <Link to="/privacidade" target="_blank" rel="noopener" className="font-medium text-primary hover:underline">
+                  Política de Privacidade
+                </Link>
+                .
+              </span>
+            </label>
+            {errors.accept_privacy && (
+              <p id="accept-privacy-error" className="text-xs font-medium text-destructive">
+                {errors.accept_privacy.message}
+              </p>
+            )}
+          </div>
 
           <div className="flex flex-col gap-3">
             <Button type="submit" size="lg" loading={signUp.isPending}>

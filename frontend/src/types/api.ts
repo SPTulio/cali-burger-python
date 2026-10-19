@@ -47,6 +47,8 @@ export interface Profile extends User {
   birth_date: string;
   sex: Sex | null;
   address: Address | null;
+  privacy_version: string | null;
+  privacy_accepted_at: string | null;
 }
 
 export interface SessionResponse {
