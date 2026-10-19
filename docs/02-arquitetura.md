@@ -71,23 +71,29 @@ erDiagram
     orders ||--|| payments : "CASCADE"
     orders ||--o{ order_status_events : "CASCADE"
     users |o--o{ order_status_events : "autor (SET NULL)"
+    store_settings
+    opening_hours
+    delivery_zones
 ```
 
 | Tabela | Destaques |
 | --- | --- |
-| `users` | `role` ∈ {customer, manager, cook}; `account_type` gerado (`customer`/`staff`); `UNIQUE(cpf, account_type)`; `username` único (clientes); `sex` (funcionários); `password_hash` bcrypt; `password_changed_at` |
+| `users` | `role` ∈ {customer, manager, cook}; `account_type` gerado (`customer`/`staff`); `UNIQUE(cpf, account_type)`; `username` único (clientes); `sex` (funcionários); `password_hash` bcrypt; `password_changed_at`; `privacy_version` e `privacy_accepted_at` (aceite da política) |
 | `customer_addresses` | 1:1 com o cliente (`state`, `city`, `district`, `street`) |
 | `sessions` | `token_hash` (SHA-256) único, `expires_at`, `last_seen_at`; o token puro só existe no cookie |
 | `login_attempts` | `key_hash` (IP + identificador), falhas e `locked_until` |
 | `categories` | dados de referência (Lanches, Acompanhamentos, Bebidas) |
-| `menu_items` | `CHECK price > 0`, `image_path` |
+| `menu_items` | `CHECK price > 0`, `image_path`, `is_paused` (fora do cardápio sem mexer no estoque) |
 | `ingredients` | nome único, `CHECK quantity >= 0` |
 | `recipe_items` | PK composta, `CHECK quantity > 0` |
-| `orders` | `status` enum; `customer_name` congelado; `total`; `idempotency_key` com `UNIQUE(customer_id, idempotency_key)`; índices `(status, created_at)` e `(customer_id, created_at)`; `delivery_address` congelado |
+| `orders` | `status` enum (inclui `ready`); `fulfillment` (`delivery`/`pickup`); `customer_name` congelado; `subtotal`, `delivery_fee`, `total`; `eta_min_minutes`/`eta_max_minutes` (previsão no momento do pedido); `idempotency_key` com `UNIQUE(customer_id, idempotency_key)`; índices `(status, created_at)` e `(customer_id, created_at)`; `delivery_address` congelado |
 | `order_items` | `product_name`, `unit_price`, `quantity`, `subtotal`, `notes` congelados |
 | `order_consumptions` | consumo real por ingrediente (devolvido no cancelamento) |
 | `payments` | método `pix`, valor, data |
-| `order_status_events` | linha do tempo (de → para, autor, data) |
+| `order_status_events` | linha do tempo (de → para, autor, data, `note` com o motivo de recusa/cancelamento) |
+| `store_settings` | linha única: pausa e mensagem, tempo de preparo, endereço de retirada, deslocamento base, taxa padrão, frete grátis acima de |
+| `opening_hours` | intervalos por dia da semana (0 = segunda); `closes_at ≤ opens_at` vira a meia-noite; sem intervalos = sempre aberta |
+| `delivery_zones` | bairro (nome único), taxa, minutos extras, ativo |
 
 Datas em UTC (`DATETIME`), dinheiro em `DECIMAL(10,2)` manipulado como `Decimal` no Python.
 
@@ -110,15 +116,22 @@ Documentação interativa gerada automaticamente em `/api/docs` (Swagger) e `/ap
 | GET | `/categories` | público | categorias |
 | GET | `/menu-items` | público | itens com disponibilidade (`?category_id`) |
 | GET | `/menu-items/{id}` | balconista, cozinheiro | detalhe com receita |
+| PUT | `/menu-items/{id}/pause` | balconista | `{is_paused}` — tira/volta o item do cardápio |
 | POST/PUT/DELETE | `/menu-items[/{id}]` | balconista | CRUD com receita |
 | PUT/DELETE | `/menu-items/{id}/image` | balconista | enviar/substituir (multipart) ou remover a imagem |
 | GET/POST | `/ingredients` | balconista | listar / adicionar (soma se existir) |
 | PUT/DELETE | `/ingredients/{id}` | balconista | editar / excluir |
-| POST | `/orders` | cliente | criar pedido (`Idempotency-Key`) |
+| POST | `/orders` | cliente | criar pedido (`Idempotency-Key`; `fulfillment` = `delivery` ou `pickup`); recusado com a loja fechada/pausada, item pausado ou bairro não atendido |
 | GET | `/orders` | todos os funcionários e cliente | lista paginada; escopo por perfil |
 | GET | `/orders/summary` | balconista, cozinheiro | contagem por status (cozinha: só a fila) |
 | GET | `/orders/{id}` | dono ou funcionário | detalhe + linha do tempo |
-| POST | `/orders/{id}/actions/{action}` | conforme a máquina de estados | `accept`, `reject`, `dispatch`, `cancel`, `complete` |
+| POST | `/orders/{id}/actions/{action}` | conforme a máquina de estados | `accept`, `reject` (motivo obrigatório), `ready`, `dispatch` (entrega), `pick_up` (retirada), `cancel` (motivo opcional), `complete`; corpo opcional `{reason}` |
+| GET | `/store` | público | aberta/fechada/pausada, mensagem, próxima abertura, horários e configurações de entrega |
+| PUT | `/store/hours` | balconista | substitui os horários (sem sobreposição no mesmo dia) |
+| PUT | `/store/pause` | balconista | `{is_paused, message}` |
+| PUT | `/store/settings` | balconista | tempo de preparo, endereço de retirada, deslocamento, taxa padrão, frete grátis |
+| GET | `/store/quote` | público | taxa e previsão para o bairro do cliente logado (`?subtotal`) |
+| GET/PUT | `/store/zones` | balconista | bairros atendidos |
 | GET | `/reports/sales` | balconista | `?start=YYYY-MM-DD&end=YYYY-MM-DD` |
 | GET/POST | `/staff` | balconista | listar / cadastrar funcionário |
 | DELETE | `/staff/{id}` | balconista | excluir (não o último balconista) |
@@ -157,7 +170,7 @@ Documentação interativa gerada automaticamente em `/api/docs` (Swagger) e `/ap
 | Concorrência | pytest + threads | dois pedidos simultâneos pelo último ingrediente → só um passa |
 | Importação | pytest | carrega o schema PHP original em um banco temporário e importa |
 | Frontend (unitário) | Vitest + jsdom | carrinho (limites, sincronização, totais em centavos), CPF, formatação de moeda e datas, `safeNext`, cliente HTTP (CSRF, `ApiError`) |
-| Frontend (componente) | Vitest + Testing Library + user-event | `ConfirmDialog` sem duplo envio enquanto a ação está pendente |
+| Frontend (componente) | Vitest + Testing Library + user-event | `ConfirmDialog` sem duplo envio; motivo obrigatório na recusa; etapas da linha do tempo por tipo de pedido; “Peça de novo”; cores do cronômetro da cozinha |
 | Frontend (estático) | `tsc`, ESLint, build do Vite e verificação manual no navegador | tipos, lint, build, fluxos completos das telas |
 
 Os testes **nunca** usam o banco de desenvolvimento: a URL de teste é exigida separadamente (`TEST_DATABASE_URL`) e o nome do banco precisa terminar em `_test`.

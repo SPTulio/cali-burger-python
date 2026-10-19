@@ -27,7 +27,7 @@ Relaciona cada funcionalidade (F) e regra (R) do sistema PHP ([01-auditoria.md](
 | F21 | Equipe (listar, cadastrar, excluir; último balconista) | `/staff` | `/painel/equipe` | `test_staff.py` | ✅ |
 | F22 | Perfil do funcionário + senha | `/me/profile`, `/me/password` | `/painel/perfil`, `/cozinha/perfil` | `test_accounts.py` | ✅ |
 | F23 | Balconista exclui a própria conta | `DELETE /me` | `/painel/perfil` | `test_accounts.py` | ✅ |
-| F24 | Fila da cozinha (auto-atualização) | `GET /orders?sort=oldest` (para o cozinheiro, o servidor restringe à fila de preparo), `POST …/dispatch` | `/cozinha` | `test_orders.py` | ✅ atualização a cada 15 s sem recarregar |
+| F24 | Fila da cozinha (auto-atualização) | `GET /orders?sort=oldest` (para o cozinheiro, o servidor restringe à fila de preparo), `POST …/ready` | `/cozinha` | `test_orders.py` | ✅ atualização a cada 15 s sem recarregar; ⚠️ a cozinha marca “Pronto” e o balcão despacha (ver abaixo) |
 | F25 | Cardápio somente leitura (cozinha) | `GET /menu-items` | `/cozinha/cardapio` | `test_catalog.py` | ✅ |
 | F26 | Confirmação de ações destrutivas | — | `ConfirmDialog` | — (verificação manual) | ✅ |
 | F27 | Mensagens de sucesso/erro | formato de erro único | toasts + erros por campo | — | ✅ |
@@ -47,6 +47,23 @@ Relaciona cada funcionalidade (F) e regra (R) do sistema PHP ([01-auditoria.md](
 | R24 último balconista | `staff/service.py::ensure_not_last_manager` (usado por `DELETE /staff/{id}` e `DELETE /me`) |
 | R25–R26 isolamento | dependências de perfil + consultas filtradas pelo usuário da sessão |
 | R27 mensagem genérica de login | `auth/service.py::authenticate` |
+
+## Fase 1 do roteiro de evolução
+
+Funcionalidades novas, sem equivalente no sistema PHP, vindas do roteiro de [07-analise-de-mercado.md](07-analise-de-mercado.md#5-roteiro-sugerido). O número entre parênteses é o da sugestão naquele documento.
+
+| ID | Funcionalidade | Endpoint(s) | Tela (frontend) | Testes |
+| --- | --- | --- | --- | --- |
+| N01 | Horário de funcionamento (26) | `GET /store`, `PUT /store/hours` | `/painel/loja`, aviso no topo do cardápio, bloqueio no checkout | `test_store.py`, `test_unit_rules.py` |
+| N02 | Pausar a loja e itens (27) | `PUT /store/pause`, `PUT /menu-items/{id}/pause` | `/painel/loja`, `/painel/cardapio` | `test_store.py`, `test_catalog.py` |
+| N03 | Motivo de recusa e de cancelamento (28) | `POST /orders/{id}/actions/{reject,cancel}` com `{reason}` | diálogos de recusa/cancelamento; motivo no detalhe e nas listas | `test_orders.py`, `components.test.tsx` |
+| N04 | “Peça de novo” (18) | — (usa `GET /orders` e `GET /menu-items`) | faixa “Peça de novo” no cardápio, botão em “Meus pedidos” e no detalhe | `reorder.test.ts` |
+| N05 | Retirada no balcão (10) | `POST /orders` com `fulfillment=pickup`, `…/pick_up` | escolha no checkout; selo “Retirada” no balcão e na cozinha | `test_orders.py`, `test_unit_rules.py` |
+| N06 | Status “Pronto” e cronômetro da cozinha (32, 33) | `…/ready`; `status_since` no pedido | `/cozinha` (cores por tempo de preparo), aba “Prontos” no balcão | `test_orders.py`, `timer.test.ts` |
+| N07 | Taxa por bairro, frete grátis e previsão (8, 9) | `GET /store/quote`, `GET/PUT /store/zones`, `PUT /store/settings` | checkout, cardápio, detalhe do pedido, `/painel/loja` | `test_delivery.py` |
+| N08 | Política de Privacidade e aceite (51) | `POST /auth/register` com `accept_privacy` | `/privacidade`, caixa no cadastro, data do aceite no perfil | `test_auth.py` |
+
+**Mudança de regra:** no sistema PHP o cozinheiro enviava o pedido para entrega (`Em preparação → A caminho`). Agora o cozinheiro marca **Pronto** e o **balconista** despacha (entrega) ou entrega no balcão (retirada). O motivo: quem sai com o pedido é o balcão, e só ele sabe quando o entregador chegou ou o cliente veio buscar. O cozinheiro deixa de ver o pedido na fila assim que ele fica pronto.
 
 ## Melhorias sem alteração de regra de negócio
 

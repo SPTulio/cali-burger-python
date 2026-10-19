@@ -17,11 +17,11 @@ Sistema de pedidos para uma hamburgueria: o cliente monta o pedido pelo cardápi
 
 | Perfil | O que faz |
 | --- | --- |
-| **Cliente** | Navega pelo cardápio (público) com disponibilidade em tempo real (“Esgotado”, “Últimas N”), monta o carrinho com observações por item, revisa endereço e paga via PIX simulado; acompanha o pedido em uma linha do tempo, cancela enquanto aguarda e confirma o recebimento. Edita dados, endereço e senha; pode excluir a conta. |
-| **Balconista / dono** | Aceita ou recusa pedidos (fila com contador atualizado sozinho), consulta todos os pedidos com busca, filtros e paginação; gerencia o cardápio (receitas e fotos), o estoque e a equipe; vê o relatório de vendas por período. |
-| **Cozinheiro** | Vê a fila de preparo (do mais antigo para o mais novo, com tempo de espera) e envia os pedidos para entrega; consulta receitas e disponibilidade. |
+| **Cliente** | Navega pelo cardápio (público) com disponibilidade em tempo real (“Esgotado”, “Últimas N”), monta o carrinho com observações por item, escolhe **entrega** (taxa por bairro, frete grátis acima de um valor e previsão de chegada) ou **retirada no balcão** e paga via PIX simulado; acompanha o pedido em uma linha do tempo, cancela enquanto aguarda (com motivo) e confirma o recebimento. Repete um pedido anterior com **“Peça de novo”**. Vê quando a loja está fechada ou pausada e quando abre. Aceita a Política de Privacidade no cadastro. Edita dados, endereço e senha; pode excluir a conta. |
+| **Balconista / dono** | Aceita ou recusa pedidos com motivo (fila com contador atualizado sozinho), despacha os pedidos prontos para entrega ou entrega no balcão, consulta todos os pedidos com busca, filtros e paginação; gerencia o cardápio (receitas, fotos e pausa de itens), o estoque e a equipe; define horários, pausa a loja, tempo de preparo, endereço de retirada e bairros atendidos; vê o relatório de vendas por período. |
+| **Cozinheiro** | Vê a fila de preparo (do mais antigo para o mais novo) com cronômetro colorido pelo tempo de preparo e marca os pedidos como **prontos**; consulta receitas e disponibilidade. |
 
-**Fluxo do pedido:** `Aguardando aceitação → Em preparação → A caminho → Concluído`, além de `Cancelado` (pelo cliente) e `Recusado` (pela loja). Quem pode executar cada ação é definido em uma máquina de estados no servidor ([`state_machine.py`](backend/app/modules/orders/state_machine.py)).
+**Fluxo do pedido:** `Aguardando aceitação → Em preparação → Pronto → A caminho → Concluído` na entrega e `… → Pronto → Concluído` na retirada, além de `Cancelado` (pelo cliente) e `Recusado` (pela loja, com motivo obrigatório). Quem pode executar cada ação é definido em uma máquina de estados no servidor ([`state_machine.py`](backend/app/modules/orders/state_machine.py)).
 
 **Estoque integrado:** cada item tem uma receita. Ao finalizar o pedido, as linhas de estoque são travadas (`SELECT … FOR UPDATE`) e o consumo do pedido inteiro é conferido e baixado em uma única transação; dois pedidos simultâneos não conseguem usar o mesmo ingrediente (há teste de concorrência para isso).
 
@@ -49,7 +49,7 @@ Sistema de pedidos para uma hamburgueria: o cliente monta o pedido pelo cardápi
 | API | **FastAPI**, Pydantic v2, SQLAlchemy 2 (ORM tipado), Alembic, PyMySQL, bcrypt, Pillow | Contratos validados e documentados automaticamente (OpenAPI), consultas parametrizadas, migrações versionadas, senhas compatíveis com os hashes do PHP. |
 | Banco | **MySQL 8** (InnoDB, utf8mb4) | Mantido do sistema original; `CHECK`, chaves estrangeiras e índices protegem a consistência. |
 | Web | **React 19 + TypeScript** (strict), Vite, Tailwind CSS v4, Radix UI, TanStack Query, React Hook Form + Zod, Zustand, Lucide | Componentes acessíveis, cache e sincronização com a API, validação imediata nos formulários. |
-| Qualidade | pytest (121 testes em MySQL real), Vitest + Testing Library, ruff, mypy strict, ESLint, GitHub Actions | Regras de negócio, permissões, concorrência, migrações e importação testadas; carrinho, validações, cliente HTTP e componentes críticos do frontend também. |
+| Qualidade | pytest (153 testes em MySQL real), Vitest + Testing Library, ruff, mypy strict, ESLint, GitHub Actions | Regras de negócio, permissões, concorrência, migrações e importação testadas; carrinho, validações, cliente HTTP e componentes críticos do frontend também. |
 | Execução | Docker Compose (MySQL + API + Nginx) | Ambiente reproduzível com um comando. |
 
 Justificativas detalhadas em [`docs/05-decisoes.md`](docs/05-decisoes.md).
@@ -177,7 +177,7 @@ Frontend (`frontend/.env`): `VITE_SHOW_DEMO_ACCOUNTS=true` mostra as contas de d
 
 ```bash
 cd backend
-pytest                    # 121 testes contra o MySQL de teste
+pytest                    # 153 testes contra o MySQL de teste
 ruff check . && ruff format --check .
 mypy app scripts          # modo strict
 
@@ -187,9 +187,9 @@ npm run lint              # ESLint
 npm run build             # TypeScript strict + build de produção
 ```
 
-Os testes do backend cobrem: regras puras (CPF, disponibilidade, máquina de estados, dinheiro); endpoints e permissões de cada perfil; o fluxo completo do pedido com baixa exata de estoque; estoque insuficiente; idempotência; devolução de estoque ao cancelar/recusar; **dois pedidos simultâneos pelo último ingrediente**; relatório (cancelados fora, fuso e limites de data); sessões, CSRF, limite de tentativas e senhas legadas; upload de imagens maliciosas; migrações (`upgrade`/`downgrade` e sincronia com os modelos); e a importação dos dados do sistema PHP.
+Os testes do backend cobrem: regras puras (CPF, disponibilidade, máquina de estados, dinheiro); endpoints e permissões de cada perfil; o fluxo completo do pedido com baixa exata de estoque; estoque insuficiente; idempotência; devolução de estoque ao cancelar/recusar; **dois pedidos simultâneos pelo último ingrediente**; relatório (cancelados fora, fuso e limites de data); sessões, CSRF, limite de tentativas e senhas legadas; upload de imagens maliciosas; horário de funcionamento (intervalos que viram a noite, próxima abertura), pausa da loja e de itens; taxa por bairro, frete grátis e previsão de entrega; retirada no balcão; motivos de recusa/cancelamento; aceite da Política de Privacidade; migrações (`upgrade`/`downgrade` e sincronia com os modelos); e a importação dos dados do sistema PHP.
 
-Os testes do frontend cobrem: o carrinho (soma ao adicionar, limite de 20 por item, sincronização com o cardápio, total em centavos); validação e máscara de CPF e o envio dos erros de campo da API para o formulário; formatação de moeda e de datas sem deslocamento de fuso (rodam em `America/Sao_Paulo`); o destino após o login, que recusa endereços externos como `//site`; o cliente HTTP (token CSRF só em métodos que alteram dados, conversão do corpo de erro em `ApiError`, falha de rede); e o diálogo de confirmação, que não envia duas vezes enquanto a ação está pendente.
+Os testes do frontend cobrem: o carrinho (soma ao adicionar, limite de 20 por item, sincronização com o cardápio, total em centavos); validação e máscara de CPF e o envio dos erros de campo da API para o formulário; formatação de moeda e de datas sem deslocamento de fuso (rodam em `America/Sao_Paulo`); o destino após o login, que recusa endereços externos como `//site`; o cliente HTTP (token CSRF só em métodos que alteram dados, conversão do corpo de erro em `ApiError`, falha de rede); o diálogo de confirmação, que não envia duas vezes enquanto a ação está pendente; o “Peça de novo” (itens removidos, pausados ou esgotados e limite do estoque); as cores do cronômetro da cozinha; e o motivo obrigatório na recusa, com as etapas da linha do tempo conforme entrega ou retirada.
 
 ## Exemplos de uso da API
 
@@ -259,6 +259,7 @@ docker-compose.yml
 
 - O pagamento PIX é **simulado** e identificado assim na interface.
 - Atualizações em tempo real por polling (sem WebSocket).
+- Taxa de entrega por **nome do bairro** (sem cálculo de distância); a previsão de chegada é uma estimativa a partir do tempo de preparo, da fila e do bairro.
 - Os testes automatizados do frontend são unitários e de componente; não há testes ponta a ponta no navegador. Os fluxos completos das telas foram verificados manualmente.
 
 ## Créditos

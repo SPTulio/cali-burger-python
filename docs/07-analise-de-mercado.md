@@ -172,7 +172,7 @@ Cada item traz **o que as referências fazem**, **como está hoje** e **o que mu
 
 ## 5. Roteiro sugerido
 
-**Fase 1 — Pronto para operar (2–3 semanas)**
+**Fase 1 — Pronto para operar (2–3 semanas)** — ✅ implementada (ver [03-rastreabilidade.md](03-rastreabilidade.md#fase-1-do-roteiro-de-evolução) e [05-decisoes.md](05-decisoes.md#fase-1-do-roteiro-evolução))
 Horário de funcionamento + pausar loja/item (26, 27) · motivo de recusa/cancelamento (28) · “Peça de novo” (18) · retirada no balcão (10) · status “Pronto” na cozinha e cronômetro com cores (32, 33) · taxa por bairro + tempo estimado (8, 9) · política de privacidade (51).
 
 **Fase 2 — Ticket médio e fidelização (3–5 semanas)**

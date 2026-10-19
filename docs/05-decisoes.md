@@ -46,6 +46,21 @@ Decisões técnicas e de produto tomadas durante a reconstrução, com o motivo 
 | U8 | Fila “Aguardando aceitação” do mais antigo para o mais novo | Ordem de atendimento; a aba “Todos os pedidos” continua do mais novo para o mais antigo, como no original. |
 | U9 | Tema claro e escuro | Mesmos tokens semânticos; o escuro tem passos próprios, não uma inversão automática. |
 
+## Fase 1 do roteiro (evolução)
+
+| # | Decisão | Motivo |
+| --- | --- | --- |
+| E1 | **Cozinha marca “Pronto”, balcão despacha** | Separa “terminou o preparo” de “saiu da loja”: dá o tempo real de preparo (base da previsão) e quem entrega o pedido é o balcão. Muda a regra original (o cozinheiro enviava). |
+| E2 | Horários em **intervalos por dia da semana** no fuso da loja; `fecha ≤ abre` vira a meia-noite; sem horários = sempre aberta | Cobre almoço + jantar e madrugada sem tabela de exceções; um banco recém-criado continua funcionando como o original (sem horário). |
+| E3 | Fechada/pausada **bloqueia no servidor** (`store_closed`, `store_paused`), não só na tela | Um carrinho aberto antes do fechamento não consegue finalizar. |
+| E4 | Pausa de item separada do estoque | “Acabou o pão de brioche hoje” não deve exigir zerar ingredientes nem apagar a receita. |
+| E5 | Taxa **por nome de bairro** (comparado sem acento e sem diferenciar maiúsculas), com taxa padrão opcional | O cadastro já tem bairro; distância exigiria geocodificação externa. Sem bairros e sem taxa padrão, a entrega é grátis para todos — o comportamento original. |
+| E6 | Taxa e previsão **congeladas no pedido** (`subtotal`, `delivery_fee`, `eta_*`) | O cliente vê o que aceitou, mesmo que a loja mude a taxa depois. O relatório continua somando o `total`. |
+| E7 | Previsão = preparo médio (últimos 14 dias, mínimo 5 pedidos; senão o tempo configurado) + fila + deslocamento do bairro, em uma janela de 10 min arredondada para 5 | Estimativa simples e explicável, que melhora sozinha com o histórico, sem prometer horário exato. |
+| E8 | Motivo **obrigatório** na recusa e opcional no cancelamento, guardado no evento da linha do tempo | O cliente entende por que o pedido foi recusado; a recusa é uma ação da loja que precisa de justificativa. |
+| E9 | “Peça de novo” **no navegador**, reaproveitando o carrinho | Não há endpoint novo: o pedido antigo é cruzado com o cardápio atual; itens pausados, esgotados ou removidos ficam de fora com aviso, e a quantidade respeita o estoque. |
+| E10 | Aceite da política **versionado** (`privacy_version`, `privacy_accepted_at`) | Permite pedir novo aceite quando o texto mudar. Usuários importados ou de demonstração ficam sem aceite registrado. |
+
 ## Segurança
 
 - Limite de tentativas de login persistido no banco por **IP + identificador** (o original contava por sessão PHP, contornável descartando o cookie).
@@ -59,5 +74,7 @@ Decisões técnicas e de produto tomadas durante a reconstrução, com o motivo 
 
 - Pagamento PIX é **simulado** (como no original) e identificado assim na interface.
 - Sem notificações em tempo real (WebSocket/SSE): as telas fazem polling com intervalos curtos.
+- A taxa de entrega depende do bairro digitado pelo cliente; um nome escrito de outro jeito (abreviação, erro de digitação) cai na taxa padrão ou fica fora da área.
+- A Política de Privacidade é um modelo para portfólio e precisa de revisão jurídica antes de uso real.
 - O workflow de CI roda no GitHub Actions (testes do backend com MySQL 8.4; lint, testes Vitest, tipos e build do frontend). O **Docker Compose** foi escrito e validado sintaticamente, mas não pôde ser executado no ambiente de desenvolvimento usado (sem Docker); a aplicação foi executada e testada localmente com MySQL 8.4.
 - O frontend tem testes unitários e de componente (Vitest + Testing Library em jsdom), mas não testes ponta a ponta no navegador: os fluxos completos das telas foram verificados manualmente.
