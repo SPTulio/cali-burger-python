@@ -47,7 +47,8 @@ _configure_test_environment()
 from app.db.session import get_engine, get_sessionmaker  # noqa: E402
 from tests.helpers import Api  # noqa: E402
 
-KEEP_TABLES = {"alembic_version", "categories"}
+# Tabelas de referência criadas pela migração (store_settings é reiniciada, não apagada).
+KEEP_TABLES = {"alembic_version", "categories", "store_settings"}
 
 
 def alembic_config():  # type: ignore[no-untyped-def]
@@ -89,6 +90,12 @@ def clean_tables(database_schema: None) -> None:
             if table not in KEEP_TABLES:
                 conn.execute(text(f"DELETE FROM `{table}`"))  # noqa: S608 - nomes vindos do information_schema
         conn.execute(text("SET FOREIGN_KEY_CHECKS = 1"))
+        conn.execute(
+            text(
+                "UPDATE store_settings SET is_paused = 0, pause_message = NULL, "
+                "prep_time_minutes = 20"
+            )
+        )
 
 
 @pytest.fixture

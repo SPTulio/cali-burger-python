@@ -17,4 +17,5 @@ export const queryKeys = {
   ordersSummary: ["orders", "summary"] as const,
   report: (start?: string, end?: string) => ["report", { start, end }] as const,
   staff: ["staff"] as const,
+  store: ["store"] as const,
 };

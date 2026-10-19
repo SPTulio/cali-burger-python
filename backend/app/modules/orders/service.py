@@ -32,6 +32,7 @@ from app.modules.orders.schemas import (
     PaymentOut,
 )
 from app.modules.orders.state_machine import OrderAction, available_actions, resolve
+from app.modules.store import service as store
 from app.modules.users.models import Role, User
 
 CENT = Decimal("0.01")
@@ -92,6 +93,8 @@ def create_order(
         if existing:
             return existing, False
 
+    store.ensure_accepting_orders(db)
+
     if customer.address is None:
         raise BusinessRuleError(
             "Cadastre um endereço de entrega antes de finalizar o pedido.",
@@ -103,6 +106,12 @@ def create_order(
     if len(products) != len(lines):
         raise BusinessRuleError(
             "Um dos itens do carrinho não está mais no cardápio. Revise o carrinho.",
+            code="item_unavailable",
+        )
+    paused = [p.name for p in products.values() if p.is_paused]
+    if paused:
+        raise BusinessRuleError(
+            f"Indisponível no momento: {', '.join(paused)}. Retire do carrinho para continuar.",
             code="item_unavailable",
         )
 

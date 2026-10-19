@@ -27,5 +27,10 @@ def local_utc_offset_minutes() -> int:
     return int(offset.total_seconds() // 60) if offset else 0
 
 
+def local_now() -> datetime:
+    """Agora no fuso da lanchonete (com tzinfo)."""
+    return datetime.now(get_settings().tz)
+
+
 def local_today() -> date:
     return datetime.now(get_settings().tz).date()

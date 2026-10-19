@@ -88,7 +88,7 @@ STAFF = [
     (Role.COOK, "Juliana Alves", "41368460020", Sex.FEMALE),
 ]
 
-KEEP_TABLES = {"alembic_version", "categories"}
+KEEP_TABLES = {"alembic_version", "categories", "store_settings"}
 
 
 def main() -> None:
@@ -138,6 +138,13 @@ def _wipe() -> None:
             if table not in KEEP_TABLES:
                 conn.execute(text(f"DELETE FROM `{table}`"))  # noqa: S608 - nomes do information_schema
         conn.execute(text("SET FOREIGN_KEY_CHECKS = 1"))
+        # Demonstração sem horário cadastrado: a loja fica aberta a qualquer hora.
+        conn.execute(
+            text(
+                "UPDATE store_settings SET is_paused = 0, pause_message = NULL, "
+                "prep_time_minutes = 20"
+            )
+        )
     media = get_settings().menu_media_dir
     if media.exists():
         shutil.rmtree(media)

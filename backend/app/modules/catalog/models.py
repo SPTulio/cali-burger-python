@@ -1,4 +1,4 @@
-from sqlalchemy import CheckConstraint, ForeignKey, Integer, String
+from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Integer, String, false
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, CreatedAt, Money, UpdatedAt
@@ -24,6 +24,8 @@ class MenuItem(Base):
     description: Mapped[str | None] = mapped_column(String(255))
     price: Mapped[Money]
     image_path: Mapped[str | None] = mapped_column(String(255))
+    # Pausado: fica fora de venda sem mexer no estoque (ex.: "acabou o bacon por hoje").
+    is_paused: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     category_id: Mapped[int] = mapped_column(
         ForeignKey("categories.id", ondelete="RESTRICT"), index=True
     )

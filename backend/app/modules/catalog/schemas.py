@@ -29,6 +29,7 @@ class Availability(StrEnum):
     AVAILABLE = "available"
     LOW = "low"  # "Últimas N"
     SOLD_OUT = "sold_out"
+    PAUSED = "paused"  # tirado de venda pela loja, independente do estoque
 
 
 class CategoryOut(BaseModel):
@@ -73,6 +74,7 @@ class MenuItemOut(BaseModel):
     price: Decimal
     image_url: str | None
     category: CategoryOut
+    is_paused: bool
     portions: int | None = Field(
         description="Quantas unidades o estoque atual permite fazer (null = item sem receita)."
     )
@@ -80,3 +82,7 @@ class MenuItemOut(BaseModel):
     recipe: list[RecipeLineOut] | None = Field(
         default=None, description="Receita (somente para funcionários)."
     )
+
+
+class PauseItemIn(BaseModel):
+    paused: bool

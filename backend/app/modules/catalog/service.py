@@ -9,7 +9,13 @@ from app.core.errors import InvalidInput, NotFound
 from app.modules.catalog import images
 from app.modules.catalog.models import Category, MenuItem, RecipeItem
 from app.modules.catalog.rules import availability, portions_available
-from app.modules.catalog.schemas import CategoryOut, MenuItemIn, MenuItemOut, RecipeLineOut
+from app.modules.catalog.schemas import (
+    Availability,
+    CategoryOut,
+    MenuItemIn,
+    MenuItemOut,
+    RecipeLineOut,
+)
 from app.modules.inventory.models import Ingredient
 
 
@@ -39,8 +45,9 @@ def to_out(item: MenuItem, *, include_recipe: bool) -> MenuItemOut:
         price=item.price,
         image_url=images.media_url(item.image_path),
         category=CategoryOut.model_validate(item.category),
+        is_paused=item.is_paused,
         portions=portions,
-        availability=availability(portions),
+        availability=Availability.PAUSED if item.is_paused else availability(portions),
         recipe=[
             RecipeLineOut(
                 ingredient_id=line.ingredient_id,
@@ -157,6 +164,15 @@ def set_image(db: Session, item_id: int, content: bytes) -> MenuItemOut:
         images.delete_media_file(new_path)
         raise
     images.delete_media_file(old_path)
+    return get_menu_item(db, item_id)
+
+
+def set_paused(db: Session, item_id: int, paused: bool) -> MenuItemOut:
+    item = db.get(MenuItem, item_id)
+    if item is None:
+        raise NotFound("Item do cardápio não encontrado.")
+    item.is_paused = paused
+    db.commit()
     return get_menu_item(db, item_id)
 
 

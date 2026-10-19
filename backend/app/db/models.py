@@ -10,6 +10,7 @@ from app.modules.orders.models import (
     OrderStatusEvent,
     Payment,
 )
+from app.modules.store.models import OpeningHour, StoreSettings
 from app.modules.users.models import CustomerAddress, User
 
 __all__ = [
@@ -19,11 +20,13 @@ __all__ = [
     "Ingredient",
     "LoginAttempt",
     "MenuItem",
+    "OpeningHour",
     "Order",
     "OrderConsumption",
     "OrderItem",
     "OrderStatusEvent",
     "Payment",
     "RecipeItem",
+    "StoreSettings",
     "User",
 ]

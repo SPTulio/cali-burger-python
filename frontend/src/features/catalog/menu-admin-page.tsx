@@ -1,5 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Ellipsis, Pencil, Plus, Search, Trash, UtensilsCrossed } from "lucide-react";
+import {
+  CirclePause,
+  CirclePlay,
+  Ellipsis,
+  Pencil,
+  Plus,
+  Search,
+  Trash,
+  UtensilsCrossed,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
@@ -26,6 +35,19 @@ export function MenuAdminPage({ readOnly = false }: { readOnly?: boolean }) {
 
   const menu = useQuery({ queryKey: queryKeys.menu(), queryFn: () => catalogApi.menu() });
   const categories = useQuery({ queryKey: queryKeys.categories, queryFn: catalogApi.categories, staleTime: Infinity });
+
+  const togglePause = useMutation({
+    mutationFn: (item: MenuItemType) => catalogApi.setPaused(item.id, !item.is_paused),
+    onSuccess: (item) => {
+      toast.success(
+        item.is_paused
+          ? `${item.name} saiu de venda. O estoque não foi alterado.`
+          : `${item.name} voltou a ser vendido.`,
+      );
+      queryClient.invalidateQueries({ queryKey: queryKeys.menuAll });
+    },
+    onError: (error) => toast.error(errorMessage(error)),
+  });
 
   const remove = useMutation({
     mutationFn: (id: number) => catalogApi.remove(id),
@@ -172,6 +194,10 @@ export function MenuAdminPage({ readOnly = false }: { readOnly?: boolean }) {
                         <MenuContent>
                           <MenuItem onSelect={() => navigate(`/painel/cardapio/${item.id}`)}>
                             <Pencil /> Editar
+                          </MenuItem>
+                          <MenuItem onSelect={() => togglePause.mutate(item)}>
+                            {item.is_paused ? <CirclePlay /> : <CirclePause />}
+                            {item.is_paused ? "Voltar a vender" : "Pausar venda"}
                           </MenuItem>
                           <MenuItem destructive onSelect={() => setToDelete(item)}>
                             <Trash /> Excluir

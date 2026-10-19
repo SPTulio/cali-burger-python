@@ -9,6 +9,7 @@ import {
   Package,
   ReceiptText,
   ShoppingBag,
+  Store,
   UserRound,
   Users,
   UtensilsCrossed,
@@ -27,6 +28,7 @@ import { Menu, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger } fr
 import { useLogout, useSession } from "@/features/auth/session";
 import { CartSheet } from "@/features/cart/cart-sheet";
 import { cartTotals, useCart } from "@/features/cart/store";
+import { StoreBanner } from "@/features/store/store-banner";
 import { ROLE_LABEL } from "@/lib/labels";
 import { cn } from "@/lib/utils";
 import type { User } from "@/types/api";
@@ -145,6 +147,7 @@ export function StorefrontLayout() {
           </div>
         </div>
       </header>
+      <StoreBanner />
       <main id="conteudo" className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8">
         <Outlet context={{ openCart: () => setCartOpen(true) }} />
       </main>
@@ -225,6 +228,7 @@ export function StaffLayout({ area }: { area: "manager" | "cook" }) {
           { to: "/painel/estoque", label: "Estoque", icon: Package },
           { to: "/painel/relatorios", label: "Relatório de vendas", icon: ChartColumn },
           { to: "/painel/equipe", label: "Equipe", icon: Users },
+          { to: "/painel/loja", label: "Loja e horários", icon: Store },
         ]
       : [
           { to: "/cozinha", label: "Fila da cozinha", icon: ChefHat, badge: counts.in_preparation },

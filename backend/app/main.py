@@ -17,6 +17,7 @@ from app.modules.inventory.router import router as inventory_router
 from app.modules.orders.router import router as orders_router
 from app.modules.reports.router import router as reports_router
 from app.modules.staff.router import router as staff_router
+from app.modules.store.router import router as store_router
 
 API_DESCRIPTION = """
 API do **Cali Burger**: cardápio com disponibilidade pelo estoque, pedidos com baixa
@@ -60,6 +61,7 @@ def create_app() -> FastAPI:
         orders_router,
         reports_router,
         staff_router,
+        store_router,
     ):
         api.include_router(router)
     app.include_router(api)

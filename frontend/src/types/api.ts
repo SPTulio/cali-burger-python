@@ -13,7 +13,7 @@ export type OrderStatus =
   | "rejected";
 
 export type OrderAction = "accept" | "reject" | "dispatch" | "cancel" | "complete";
-export type Availability = "available" | "low" | "sold_out";
+export type Availability = "available" | "low" | "sold_out" | "paused";
 export type StockLevel = "ok" | "low" | "out";
 export type Money = string;
 
@@ -63,6 +63,7 @@ export interface MenuItem {
   price: Money;
   image_url: string | null;
   category: Category;
+  is_paused: boolean;
   portions: number | null;
   availability: Availability;
   recipe: RecipeLine[] | null;
@@ -182,4 +183,21 @@ export interface StaffMember {
 
 export interface ApiErrorBody {
   error: { code: string; message: string; fields: Record<string, string> };
+}
+
+export interface OpeningHour {
+  weekday: number; // 0 = segunda … 6 = domingo
+  opens_at: string; // "HH:MM:SS"
+  closes_at: string;
+}
+
+export interface StoreStatus {
+  accepting_orders: boolean;
+  within_hours: boolean;
+  is_paused: boolean;
+  pause_message: string | null;
+  message: string | null;
+  next_opening_at: string | null;
+  hours: OpeningHour[];
+  prep_time_minutes: number;
 }

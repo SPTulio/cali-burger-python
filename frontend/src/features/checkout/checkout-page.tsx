@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { MapPin, QrCode, ShieldCheck, ShoppingBag, TriangleAlert } from "lucide-react";
+import { Clock, MapPin, QrCode, ShieldCheck, ShoppingBag, TriangleAlert } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router";
@@ -16,6 +16,7 @@ import { Field, Input } from "@/components/ui/field";
 import { Card, CardHeader, Skeleton } from "@/components/ui/primitives";
 import { CartLineRow } from "@/features/cart/cart-sheet";
 import { cartTotals, useCart } from "@/features/cart/store";
+import { useStoreStatus } from "@/features/store/use-store-status";
 import { formatCurrency } from "@/lib/format";
 import { newIdempotencyKey } from "@/lib/utils";
 import { addressSchema, applyApiErrors } from "@/lib/validation";
@@ -32,6 +33,8 @@ export function CheckoutPage() {
 
   const profile = useQuery({ queryKey: queryKeys.profile, queryFn: accountApi.profile });
   const menu = useQuery({ queryKey: queryKeys.menu(), queryFn: () => catalogApi.menu() });
+  const store = useStoreStatus();
+  const storeClosed = store.data ? !store.data.accepting_orders : false;
 
   // Itens que saíram do cardápio são retirados do carrinho (como no sistema original).
   useEffect(() => {
@@ -52,11 +55,12 @@ export function CheckoutPage() {
     return lines
       .filter((l) => {
         const item = byId.get(l.menuItemId);
-        return item && item.portions !== null && l.quantity > item.portions;
+        return item && (item.is_paused || (item.portions !== null && l.quantity > item.portions));
       })
       .map((l) => {
-        const portions = byId.get(l.menuItemId)!.portions!;
-        return portions === 0 ? `${l.name} esgotou.` : `${l.name}: restam só ${portions}.`;
+        const item = byId.get(l.menuItemId)!;
+        if (item.is_paused) return `${l.name} está indisponível no momento.`;
+        return item.portions === 0 ? `${l.name} esgotou.` : `${l.name}: restam só ${item.portions}.`;
       });
   }, [lines, menu.data]);
 
@@ -74,6 +78,9 @@ export function CheckoutPage() {
     },
     onError: (error) => {
       if (error instanceof ApiError && error.code === "missing_address") setAddressOpen(true);
+      if (error instanceof ApiError && error.code.startsWith("store_")) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.store });
+      }
       if (error instanceof ApiError && error.status === 409) {
         queryClient.invalidateQueries({ queryKey: queryKeys.menuAll });
       }
@@ -161,6 +168,12 @@ export function CheckoutPage() {
                 nenhum valor é cobrado. Ao confirmar, o pedido é registrado como pago.
               </p>
             </div>
+            {storeClosed && store.data?.message && (
+              <div role="alert" className="flex gap-2 rounded-md bg-warning-soft p-3 text-sm text-warning">
+                <Clock className="mt-0.5 size-4 shrink-0" aria-hidden />
+                <p>{store.data.message}</p>
+              </div>
+            )}
             {stockWarnings.length > 0 && (
               <div role="alert" className="flex gap-2 rounded-md bg-warning-soft p-3 text-sm text-warning">
                 <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
@@ -185,7 +198,7 @@ export function CheckoutPage() {
               size="lg"
               onClick={() => placeOrder.mutate()}
               loading={placeOrder.isPending}
-              disabled={!address || stockWarnings.length > 0}
+              disabled={!address || stockWarnings.length > 0 || storeClosed}
             >
               <ShieldCheck /> Confirmar pagamento
             </Button>

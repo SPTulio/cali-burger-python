@@ -5,7 +5,7 @@ from fastapi import APIRouter, File, Query, Response, UploadFile, status
 from app.core.config import get_settings
 from app.modules.auth.dependencies import DbSession, ManagerUser, OptionalSession, StaffUser
 from app.modules.catalog import service
-from app.modules.catalog.schemas import CategoryOut, MenuItemIn, MenuItemOut
+from app.modules.catalog.schemas import CategoryOut, MenuItemIn, MenuItemOut, PauseItemIn
 
 router = APIRouter(tags=["Cardápio"])
 
@@ -76,3 +76,12 @@ def upload_image(
 @router.delete("/menu-items/{item_id}/image", response_model=MenuItemOut, summary="Remover imagem")
 def remove_image(item_id: int, _: ManagerUser, db: DbSession) -> MenuItemOut:
     return service.remove_image(db, item_id)
+
+
+@router.put(
+    "/menu-items/{item_id}/pause",
+    response_model=MenuItemOut,
+    summary="Pausar ou reativar a venda do item (sem mexer no estoque)",
+)
+def set_paused(item_id: int, data: PauseItemIn, _: ManagerUser, db: DbSession) -> MenuItemOut:
+    return service.set_paused(db, item_id, data.paused)

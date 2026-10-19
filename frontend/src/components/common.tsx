@@ -116,6 +116,7 @@ export function AvailabilityBadge({
   availability: Availability;
   portions: number | null;
 }) {
+  if (availability === "paused") return <Badge tone="neutral">Indisponível no momento</Badge>;
   if (availability === "sold_out") return <Badge tone="danger">Esgotado</Badge>;
   if (availability === "low") return <Badge tone="warning">Últimas {portions}</Badge>;
   return <Badge tone="success">Disponível</Badge>;

@@ -75,6 +75,7 @@ export const router = createBrowserRouter([
           { path: "estoque", lazy: page(() => import("@/features/inventory/inventory-page"), "InventoryPage") },
           { path: "relatorios", lazy: page(() => import("@/features/reports/reports-page"), "ReportsPage") },
           { path: "equipe", lazy: page(() => import("@/features/staff/staff-page"), "StaffPage") },
+          { path: "loja", lazy: page(() => import("@/features/store/store-page"), "StorePage") },
           { path: "perfil", element: <ProfilePage /> },
           { path: "*", element: <NotFound /> },
         ],

@@ -124,7 +124,7 @@ function ProductCard({ item }: { item: MenuItem }) {
   const inCart = useCart((s) => s.lines.find((l) => l.menuItemId === item.id)?.quantity ?? 0);
   const add = useCart((s) => s.add);
   const setQuantity = useCart((s) => s.setQuantity);
-  const soldOut = item.availability === "sold_out";
+  const unavailable = item.availability === "sold_out" || item.availability === "paused";
   // Como no original: não deixa pedir mais do que o estoque permite fazer.
   const max = Math.min(MAX_ITEM_QUANTITY, item.portions ?? MAX_ITEM_QUANTITY);
 
@@ -139,7 +139,7 @@ function ProductCard({ item }: { item: MenuItem }) {
     <article
       className={cn(
         "group flex flex-col overflow-hidden rounded-lg border bg-surface shadow-xs transition-shadow hover:shadow-md",
-        soldOut && "opacity-70",
+        unavailable && "opacity-70",
       )}
     >
       <div className="relative aspect-[4/3] overflow-hidden bg-muted">
@@ -168,9 +168,9 @@ function ProductCard({ item }: { item: MenuItem }) {
         )}
         <div className="mt-auto flex items-center justify-between gap-3 pt-4">
           <span className="tabular text-base font-semibold">{formatCurrency(item.price)}</span>
-          {soldOut ? (
+          {unavailable ? (
             <Button variant="secondary" disabled>
-              Esgotado
+              {item.availability === "paused" ? "Indisponível" : "Esgotado"}
             </Button>
           ) : inCart > 0 ? (
             <QuantityStepper

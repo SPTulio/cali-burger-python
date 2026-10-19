@@ -20,6 +20,7 @@ import type {
   SessionResponse,
   Sex,
   StaffMember,
+  StoreStatus,
 } from "@/types/api";
 
 export interface RegisterInput {
@@ -88,6 +89,8 @@ export const catalogApi = {
     return http.put<MenuItem>(`/menu-items/${id}/image`, { body });
   },
   removeImage: (id: number) => http.delete<MenuItem>(`/menu-items/${id}/image`),
+  setPaused: (id: number, paused: boolean) =>
+    http.put<MenuItem>(`/menu-items/${id}/pause`, { json: { paused } }),
 };
 
 export const inventoryApi = {
@@ -119,4 +122,14 @@ export const staffApi = {
   list: () => http.get<StaffMember[]>("/staff"),
   create: (data: StaffInput) => http.post<StaffMember>("/staff", { json: data }),
   remove: (id: number) => http.delete<void>(`/staff/${id}`),
+};
+
+export const storeApi = {
+  status: () => http.get<StoreStatus>("/store"),
+  replaceHours: (hours: { weekday: number; opens_at: string; closes_at: string }[]) =>
+    http.put<StoreStatus>("/store/hours", { json: { hours } }),
+  setPause: (paused: boolean, message: string | null) =>
+    http.put<StoreStatus>("/store/pause", { json: { paused, message } }),
+  updateSettings: (prepTimeMinutes: number) =>
+    http.put<StoreStatus>("/store/settings", { json: { prep_time_minutes: prepTimeMinutes } }),
 };
