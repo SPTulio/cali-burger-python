@@ -8,13 +8,16 @@ import { queryKeys } from "@/api/keys";
 import { ErrorState, StatusBadge } from "@/components/common";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, Skeleton, Table, TD, TH, THead, TR } from "@/components/ui/primitives";
+import { useSession } from "@/features/auth/session";
 import { OrderActions, OrderProgress } from "@/features/orders/components";
+import { ReorderButton } from "@/features/orders/reorder-button";
 import { formatCurrency, formatDateTime } from "@/lib/format";
 import { ORDER_STATUS } from "@/lib/labels";
 
 export function OrderDetailPage({ backTo = "/pedidos" }: { backTo?: string }) {
   const id = Number(useParams().id);
   const [params] = useSearchParams();
+  const session = useSession();
   const isNew = params.get("novo") === "1";
 
   const order = useQuery({
@@ -61,7 +64,12 @@ export function OrderDetailPage({ backTo = "/pedidos" }: { backTo?: string }) {
             {formatDateTime(data.created_at)} · {ORDER_STATUS[data.status].customerHint}
           </p>
         </div>
-        <OrderActions order={data} size="md" />
+        <div className="flex flex-wrap gap-2">
+          <OrderActions order={data} size="md" />
+          {session.data?.role === "customer" && !orderingActive(data.status) && (
+            <ReorderButton order={data} size="md" />
+          )}
+        </div>
       </div>
 
       <Card className="mb-6 p-5">

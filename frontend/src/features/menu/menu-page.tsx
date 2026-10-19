@@ -12,11 +12,13 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/primitives";
 import { HOME_BY_ROLE, useSession } from "@/features/auth/session";
 import { MAX_ITEM_QUANTITY, useCart } from "@/features/cart/store";
+import { RecentOrders } from "@/features/menu/recent-orders";
 import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { Category, MenuItem } from "@/types/api";
 
 export function MenuPage() {
+  const { openCart } = useOutletContext<StorefrontContext>();
   const session = useSession();
   const [params, setParams] = useSearchParams();
   const selected = Number(params.get("categoria")) || null;
@@ -48,6 +50,8 @@ export function MenuPage() {
           Hambúrgueres artesanais, acompanhamentos e bebidas — feitos na hora.
         </p>
       </div>
+
+      {session.data?.role === "customer" && <RecentOrders onReordered={openCart} />}
 
       <CategoryChips categories={categories.data} selected={selected} onSelect={selectCategory} />
 

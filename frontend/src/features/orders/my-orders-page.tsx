@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/field";
 import { Card, Skeleton } from "@/components/ui/primitives";
 import { OrderActions } from "@/features/orders/components";
+import { ReorderButton } from "@/features/orders/reorder-button";
 import { formatCurrency, formatDateTime, todayIso } from "@/lib/format";
 import { ORDER_STATUS, ORDER_STATUS_ORDER } from "@/lib/labels";
 import type { OrderFilters, OrderStatus } from "@/types/api";
@@ -119,6 +120,9 @@ export function MyOrdersPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <OrderActions order={order} />
+                  {!["awaiting_acceptance", "in_preparation", "ready", "out_for_delivery"].includes(order.status) && (
+                    <ReorderButton order={order} />
+                  )}
                   <Button asChild variant="ghost" size="sm">
                     <Link to={`/pedidos/${order.id}`} aria-label={`Detalhes do pedido ${order.id}`}>
                       Detalhes <ChevronRight />
