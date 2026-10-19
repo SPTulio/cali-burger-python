@@ -49,7 +49,7 @@ Sistema de pedidos para uma hamburgueria: o cliente monta o pedido pelo cardápi
 | API | **FastAPI**, Pydantic v2, SQLAlchemy 2 (ORM tipado), Alembic, PyMySQL, bcrypt, Pillow | Contratos validados e documentados automaticamente (OpenAPI), consultas parametrizadas, migrações versionadas, senhas compatíveis com os hashes do PHP. |
 | Banco | **MySQL 8** (InnoDB, utf8mb4) | Mantido do sistema original; `CHECK`, chaves estrangeiras e índices protegem a consistência. |
 | Web | **React 19 + TypeScript** (strict), Vite, Tailwind CSS v4, Radix UI, TanStack Query, React Hook Form + Zod, Zustand, Lucide | Componentes acessíveis, cache e sincronização com a API, validação imediata nos formulários. |
-| Qualidade | pytest (121 testes em MySQL real), ruff, mypy strict, ESLint, GitHub Actions | Regras de negócio, permissões, concorrência, migrações e importação testadas. |
+| Qualidade | pytest (121 testes em MySQL real), Vitest + Testing Library, ruff, mypy strict, ESLint, GitHub Actions | Regras de negócio, permissões, concorrência, migrações e importação testadas; carrinho, validações, cliente HTTP e componentes críticos do frontend também. |
 | Execução | Docker Compose (MySQL + API + Nginx) | Ambiente reproduzível com um comando. |
 
 Justificativas detalhadas em [`docs/05-decisoes.md`](docs/05-decisoes.md).
@@ -182,11 +182,14 @@ ruff check . && ruff format --check .
 mypy app scripts          # modo strict
 
 cd ../frontend
+npm test                  # Vitest + Testing Library (jsdom)
 npm run lint              # ESLint
 npm run build             # TypeScript strict + build de produção
 ```
 
 Os testes do backend cobrem: regras puras (CPF, disponibilidade, máquina de estados, dinheiro); endpoints e permissões de cada perfil; o fluxo completo do pedido com baixa exata de estoque; estoque insuficiente; idempotência; devolução de estoque ao cancelar/recusar; **dois pedidos simultâneos pelo último ingrediente**; relatório (cancelados fora, fuso e limites de data); sessões, CSRF, limite de tentativas e senhas legadas; upload de imagens maliciosas; migrações (`upgrade`/`downgrade` e sincronia com os modelos); e a importação dos dados do sistema PHP.
+
+Os testes do frontend cobrem: o carrinho (soma ao adicionar, limite de 20 por item, sincronização com o cardápio, total em centavos); validação e máscara de CPF e o envio dos erros de campo da API para o formulário; formatação de moeda e de datas sem deslocamento de fuso (rodam em `America/Sao_Paulo`); o destino após o login, que recusa endereços externos como `//site`; o cliente HTTP (token CSRF só em métodos que alteram dados, conversão do corpo de erro em `ApiError`, falha de rede); e o diálogo de confirmação, que não envia duas vezes enquanto a ação está pendente.
 
 ## Exemplos de uso da API
 
@@ -236,6 +239,7 @@ backend/
   tests/          # pytest (MySQL de teste)
 frontend/
   src/            # api, app (rotas, layouts, guards), components/ui, features/<domínio>, lib
+                  # testes Vitest ao lado do código (*.test.ts[x]); utilitários em src/test
 docs/             # auditoria, arquitetura, rastreabilidade, design system, decisões, migração
 tools/            # geração das capturas de tela (Playwright)
 docker-compose.yml
@@ -254,7 +258,7 @@ docker-compose.yml
 
 - O pagamento PIX é **simulado** e identificado assim na interface.
 - Atualizações em tempo real por polling (sem WebSocket).
-- O frontend não tem testes automatizados de componentes; é verificado por TypeScript strict, ESLint, build e testes manuais.
+- Os testes automatizados do frontend são unitários e de componente; não há testes ponta a ponta no navegador. Os fluxos completos das telas foram verificados manualmente.
 
 ## Créditos
 

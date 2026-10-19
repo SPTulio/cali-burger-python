@@ -59,5 +59,5 @@ Decisões técnicas e de produto tomadas durante a reconstrução, com o motivo 
 
 - Pagamento PIX é **simulado** (como no original) e identificado assim na interface.
 - Sem notificações em tempo real (WebSocket/SSE): as telas fazem polling com intervalos curtos.
-- O workflow de CI roda no GitHub Actions (testes do backend com MySQL 8.4, lint, tipos e build do frontend). O **Docker Compose** foi escrito e validado sintaticamente, mas não pôde ser executado no ambiente de desenvolvimento usado (sem Docker); a aplicação foi executada e testada localmente com MySQL 8.4.
-- Não há testes automatizados de componentes do frontend; o frontend é verificado por TypeScript estrito, ESLint, build de produção e testes manuais no navegador.
+- O workflow de CI roda no GitHub Actions (testes do backend com MySQL 8.4; lint, testes Vitest, tipos e build do frontend). O **Docker Compose** foi escrito e validado sintaticamente, mas não pôde ser executado no ambiente de desenvolvimento usado (sem Docker); a aplicação foi executada e testada localmente com MySQL 8.4.
+- O frontend tem testes unitários e de componente (Vitest + Testing Library em jsdom), mas não testes ponta a ponta no navegador: os fluxos completos das telas foram verificados manualmente.

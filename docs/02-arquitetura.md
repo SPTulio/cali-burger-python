@@ -156,7 +156,9 @@ Documentação interativa gerada automaticamente em `/api/docs` (Swagger) e `/ap
 | Migrações | pytest | `alembic upgrade head` em banco vazio + `downgrade base` + `upgrade` |
 | Concorrência | pytest + threads | dois pedidos simultâneos pelo último ingrediente → só um passa |
 | Importação | pytest | carrega o schema PHP original em um banco temporário e importa |
-| Frontend | `tsc --noEmit`, ESLint, build do Vite e verificação manual no navegador | tipos, lint, build |
+| Frontend (unitário) | Vitest + jsdom | carrinho (limites, sincronização, totais em centavos), CPF, formatação de moeda e datas, `safeNext`, cliente HTTP (CSRF, `ApiError`) |
+| Frontend (componente) | Vitest + Testing Library + user-event | `ConfirmDialog` sem duplo envio enquanto a ação está pendente |
+| Frontend (estático) | `tsc`, ESLint, build do Vite e verificação manual no navegador | tipos, lint, build, fluxos completos das telas |
 
 Os testes **nunca** usam o banco de desenvolvimento: a URL de teste é exigida separadamente (`TEST_DATABASE_URL`) e o nome do banco precisa terminar em `_test`.
 
