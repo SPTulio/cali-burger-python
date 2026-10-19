@@ -31,3 +31,6 @@ Thumbs.db
 
 # Configuração local do Claude Code (caminhos desta máquina)
 .claude/
+
+# Artefatos de build do pacote Python
+build/

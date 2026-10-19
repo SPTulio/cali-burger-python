@@ -9,11 +9,12 @@ import {
   TriangleAlert,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 
 import { errorMessage } from "@/api/client";
 import { Button } from "@/components/ui/button";
 import { Badge, Skeleton } from "@/components/ui/primitives";
+import { useTheme } from "@/hooks/use-theme";
 import { ORDER_STATUS, STOCK_LEVEL } from "@/lib/labels";
 import { cn } from "@/lib/utils";
 import type { Availability, OrderStatus, StockLevel } from "@/types/api";
@@ -232,27 +233,15 @@ export function Logo({ compact = false, className }: { compact?: boolean; classN
   );
 }
 
-function readTheme(): "light" | "dark" {
-  return document.documentElement.classList.contains("dark") ? "dark" : "light";
-}
-
 export function ThemeToggle({ className }: { className?: string }) {
-  const [theme, setTheme] = useState(readTheme);
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", theme === "dark");
-    try {
-      localStorage.setItem("cb-theme", theme);
-    } catch {
-      // Navegação privada: o tema só não fica salvo.
-    }
-  }, [theme]);
+  const { theme, toggle } = useTheme();
   const next = theme === "dark" ? "light" : "dark";
   return (
     <Button
       variant="ghost"
       size="icon"
       className={className}
-      onClick={() => setTheme(next)}
+      onClick={toggle}
       aria-label={next === "dark" ? "Usar tema escuro" : "Usar tema claro"}
       title={next === "dark" ? "Tema escuro" : "Tema claro"}
     >
