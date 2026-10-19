@@ -253,6 +253,7 @@ docker-compose.yml
 4. [Design system](docs/04-design-system.md) — tokens, componentes, responsividade e acessibilidade
 5. [Decisões e limitações](docs/05-decisoes.md)
 6. [Migração de dados](docs/06-migracao-dados.md)
+7. [Análise de mercado e sugestões de evolução](docs/07-analise-de-mercado.md) — comparação com iFood, Goomer, Anota AI, apps de redes e KDS; roteiro priorizado
 
 ## Limitações conhecidas
 
